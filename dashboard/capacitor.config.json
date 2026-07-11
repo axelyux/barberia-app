@@ -3,7 +3,7 @@
   "appName": "Barber SaaS",
   "webDir": "public",
   "server": {
-    "url": "http://CAMBIA-ESTA-IP:3001",
+    "url": "http://192.168.100.10:3001",
     "cleartext": true
   }
 }
