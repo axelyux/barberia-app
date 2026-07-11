@@ -1,0 +1,339 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import Badge from "@/components/Badge";
+import BottomSheet from "@/components/BottomSheet";
+import SheetButton from "@/components/SheetButton";
+import Avatar from "@/components/Avatar";
+import { Field, TextInput, NumberInput, ColorPicker, ImagePicker } from "@/components/FormField";
+import { money, shortDate, TENANT_STATUS_META } from "@/lib/format";
+import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant } from "@/app/admin/actions";
+
+const FILTERS = [
+    { key: "all", label: "Todas" },
+    { key: "good", label: "Activas" },
+    { key: "warn", label: "Por vencer" },
+    { key: "bad", label: "Inactivas" },
+];
+
+const emptyForm = { name: "", ownerName: "", planPrice: "200", brandColor: "#D9A441", logoUrl: "" };
+
+function tenantToForm(t) {
+    return {
+        name: t.name,
+        ownerName: t.ownerName ?? "",
+        planPrice: String(t.planPriceCents / 100),
+        brandColor: t.brandColor,
+        logoUrl: t.logoUrl ?? "",
+    };
+}
+
+function TenantFormFields({ form, setForm }) {
+    return (
+        <div className="flex flex-col gap-3">
+            <Field label="Nombre de la barbería">
+                <TextInput
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Ej. Fade King Barbería"
+                />
+            </Field>
+            <Field label="Nombre del dueño">
+                <TextInput
+                    value={form.ownerName}
+                    onChange={(e) => setForm((f) => ({ ...f, ownerName: e.target.value }))}
+                    placeholder="Ej. Luis Torres"
+                />
+            </Field>
+            <Field label="Plan mensual (MXN)">
+                <NumberInput
+                    value={form.planPrice}
+                    onChange={(e) => setForm((f) => ({ ...f, planPrice: e.target.value }))}
+                    min="0"
+                    step="10"
+                />
+            </Field>
+            <Field label="Logo (opcional)">
+                <ImagePicker value={form.logoUrl} onChange={(v) => setForm((f) => ({ ...f, logoUrl: v }))} />
+            </Field>
+            <Field label="Color de marca">
+                <ColorPicker value={form.brandColor} onChange={(v) => setForm((f) => ({ ...f, brandColor: v }))} />
+            </Field>
+        </div>
+    );
+}
+
+function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspend, onReactivate }) {
+    const [form, setForm] = useState(() => tenantToForm(tenant));
+
+    return (
+        <>
+            <TenantFormFields form={form} setForm={setForm} />
+
+            <div className="mt-3 flex items-center justify-between border-t border-zinc-800 pt-3 text-[13.5px]">
+                <span className="text-zinc-400">WhatsApp</span>
+                <span className="font-numeric font-semibold text-zinc-100">{tenant.whatsappNumber ?? "Pendiente de vincular"}</span>
+            </div>
+            <div className="flex items-center justify-between py-2.5 text-[13.5px]">
+                <span className="text-zinc-400">{tenant.status === "PAUSED" ? "Venció" : "Renovación"}</span>
+                <span className="font-numeric font-semibold text-zinc-100">
+                    {tenant.nextDueDate ? shortDate(tenant.nextDueDate) : "—"}
+                </span>
+            </div>
+
+            {error ? <p className="mb-2 text-sm text-red-400">{error}</p> : null}
+
+            <div className="mt-2 flex flex-col gap-2">
+                <SheetButton
+                    variant="ghost"
+                    disabled={isPending}
+                    onClick={() =>
+                        onSave({
+                            name: form.name,
+                            ownerName: form.ownerName,
+                            planPriceCents: Math.round(parseFloat(form.planPrice || "0") * 100),
+                            brandColor: form.brandColor,
+                            logoUrl: form.logoUrl,
+                        })
+                    }
+                >
+                    Guardar cambios
+                </SheetButton>
+                <SheetButton variant="primary" disabled={isPending} onClick={onMarkPaid}>
+                    Marcar como pagado
+                </SheetButton>
+                {tenant.whatsappNumber ? (
+                    <a
+                        href={`https://wa.me/${tenant.whatsappNumber}?text=${encodeURIComponent(
+                            `Hola ${tenant.ownerName ?? ""}, te escribo para recordarte tu suscripción de ${tenant.name}.`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 bg-zinc-800/60 text-sm font-bold text-zinc-100"
+                    >
+                        💬 Enviar recordatorio por WhatsApp
+                    </a>
+                ) : null}
+                {tenant.status === "PAUSED" ? (
+                    <SheetButton variant="good" disabled={isPending} onClick={onReactivate}>
+                        Reactivar bot
+                    </SheetButton>
+                ) : (
+                    <SheetButton variant="danger" disabled={isPending} onClick={onSuspend}>
+                        Suspender bot
+                    </SheetButton>
+                )}
+            </div>
+        </>
+    );
+}
+
+export default function AdminBoard({ tenants, monthlyRevenueCents }) {
+    const [filter, setFilter] = useState("all");
+    const [selectedId, setSelectedId] = useState(null);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createForm, setCreateForm] = useState(emptyForm);
+    const [error, setError] = useState("");
+    const [isPending, startTransition] = useTransition();
+
+    const counts = useMemo(() => {
+        const c = { all: tenants.length, good: 0, warn: 0, bad: 0 };
+        for (const t of tenants) c[TENANT_STATUS_META[t.status].tone]++;
+        return c;
+    }, [tenants]);
+
+    const visibleTenants = useMemo(
+        () => (filter === "all" ? tenants : tenants.filter((t) => TENANT_STATUS_META[t.status].tone === filter)),
+        [tenants, filter]
+    );
+
+    const selected = tenants.find((t) => t.id === selectedId) ?? null;
+
+    const runAction = (fn, { closeSheet = true } = {}) => {
+        setError("");
+        startTransition(async () => {
+            try {
+                await fn();
+                if (closeSheet) {
+                    setSelectedId(null);
+                    setCreateOpen(false);
+                }
+            } catch (err) {
+                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+            }
+        });
+    };
+
+    return (
+        <div className="mx-auto flex max-w-[430px] flex-col gap-5 px-4 pb-16 pt-6">
+            <div>
+                <p className="text-xs text-zinc-500">Hola, Armando</p>
+                <h1 className="text-[19px] font-bold text-zinc-50">Panel Admin</h1>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos del mes</p>
+                    <p className="font-numeric mt-2 text-[22px] font-bold text-zinc-50">{money(monthlyRevenueCents)}</p>
+                    <p className="mt-1.5 text-xs text-zinc-400">de {tenants.length} barberías</p>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Barberías totales</p>
+                    <p className="font-numeric mt-2 text-[22px] font-bold text-zinc-50">{tenants.length}</p>
+                    <p className="mt-1.5 text-xs text-zinc-400">
+                        {counts.good} activas · {counts.warn + counts.bad} por revisar
+                    </p>
+                </div>
+            </div>
+
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {FILTERS.map((f) => (
+                    <button
+                        key={f.key}
+                        onClick={() => setFilter(f.key)}
+                        aria-pressed={filter === f.key}
+                        className={`flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3.5 text-sm font-semibold transition-colors ${filter === f.key
+                                ? "border-amber-700/50 bg-amber-500/10 text-amber-400"
+                                : "border-zinc-800 bg-zinc-900 text-zinc-400"
+                            }`}
+                    >
+                        {f.label}
+                        <span className="font-numeric opacity-70">{counts[f.key]}</span>
+                    </button>
+                ))}
+            </div>
+
+            <div>
+                <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Barberías</p>
+                    <button
+                        onClick={() => {
+                            setError("");
+                            setCreateForm(emptyForm);
+                            setCreateOpen(true);
+                        }}
+                        className="flex h-8 items-center gap-1 rounded-md bg-amber-500 px-3 text-xs font-bold text-zinc-950"
+                    >
+                        + Nueva barbería
+                    </button>
+                </div>
+                <div className="flex flex-col gap-2.5">
+                    {visibleTenants.map((t) => {
+                        const meta = TENANT_STATUS_META[t.status];
+                        return (
+                            <div key={t.id} className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                                <button onClick={() => setSelectedId(t.id)} className="flex w-full items-start gap-3 text-left">
+                                    <Avatar name={t.name} logoUrl={t.logoUrl} color={t.brandColor} square />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-[15px] font-bold text-zinc-50">{t.name}</p>
+                                                <p className="truncate text-xs text-zinc-400">{t.ownerName ?? "Sin dueño registrado"}</p>
+                                            </div>
+                                            <Badge tone={meta.tone}>{meta.label}</Badge>
+                                        </div>
+                                        <div className="mt-2.5 flex flex-wrap gap-x-3.5 gap-y-1 border-t border-zinc-800 pt-2.5 text-xs text-zinc-400">
+                                            <span>
+                                                Plan <b className="font-numeric font-semibold text-zinc-100">{money(t.planPriceCents)}</b>/mes
+                                            </span>
+                                            <span>
+                                                {t.status === "PAUSED" ? "Venció" : "Renueva"}{" "}
+                                                <b className="font-numeric font-semibold text-zinc-100">
+                                                    {t.nextDueDate ? shortDate(t.nextDueDate) : "—"}
+                                                </b>
+                                            </span>
+                                            {!t.whatsappNumber ? <span className="text-orange-400">Pendiente de vincular</span> : null}
+                                        </div>
+                                    </div>
+                                </button>
+                                <div className="mt-2.5 flex gap-2">
+                                    {t.whatsappNumber ? (
+                                        <a
+                                            href={`https://wa.me/${t.whatsappNumber}?text=${encodeURIComponent(
+                                                `Hola ${t.ownerName ?? ""}, te escribo para recordarte tu suscripción de ${t.name}.`
+                                            )}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-emerald-800/50 bg-zinc-800/60 text-sm font-semibold text-emerald-400"
+                                        >
+                                            💬 Cobrar
+                                        </a>
+                                    ) : (
+                                        <span className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-zinc-800 bg-zinc-800/30 text-sm text-zinc-600">
+                                            Sin WhatsApp
+                                        </span>
+                                    )}
+                                    <button
+                                        disabled={isPending}
+                                        onClick={() =>
+                                            runAction(() => (t.status === "PAUSED" ? reactivateTenant(t.id) : suspendTenant(t.id)), {
+                                                closeSheet: false,
+                                            })
+                                        }
+                                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-red-800/50 bg-zinc-800/60 text-sm font-semibold text-red-400 disabled:opacity-50"
+                                    >
+                                        {t.status === "PAUSED" ? "▶ Reactivar" : "⏸ Suspender"}
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {visibleTenants.length === 0 ? (
+                        <p className="rounded-md border border-dashed border-zinc-800 p-6 text-center text-sm text-zinc-500">
+                            No hay barberías en este filtro.
+                        </p>
+                    ) : null}
+                </div>
+            </div>
+
+            {/* -------- Sheet: editar barbería existente -------- */}
+            <BottomSheet open={!!selected} onClose={() => setSelectedId(null)} title="Editar barbería" subtitle={selected?.slug}>
+                {selected ? (
+                    <EditTenantForm
+                        key={selected.id}
+                        tenant={selected}
+                        isPending={isPending}
+                        error={error}
+                        onSave={(data) => runAction(() => updateTenant(selected.id, data), { closeSheet: false })}
+                        onMarkPaid={() => runAction(() => markTenantPaid(selected.id))}
+                        onSuspend={() => runAction(() => suspendTenant(selected.id))}
+                        onReactivate={() => runAction(() => reactivateTenant(selected.id))}
+                    />
+                ) : null}
+            </BottomSheet>
+
+            {/* -------- Sheet: nueva barbería -------- */}
+            <BottomSheet
+                open={createOpen}
+                onClose={() => setCreateOpen(false)}
+                title="Nueva barbería"
+                subtitle="Se crea como 'pendiente de vincular' hasta que conectes su WhatsApp"
+            >
+                <TenantFormFields form={createForm} setForm={setCreateForm} />
+                {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
+                <div className="mt-4 flex flex-col gap-2">
+                    <SheetButton
+                        variant="primary"
+                        disabled={isPending}
+                        onClick={() =>
+                            runAction(() =>
+                                createTenant({
+                                    name: createForm.name,
+                                    ownerName: createForm.ownerName,
+                                    planPriceCents: Math.round(parseFloat(createForm.planPrice || "0") * 100),
+                                    brandColor: createForm.brandColor,
+                                    logoUrl: createForm.logoUrl,
+                                })
+                            )
+                        }
+                    >
+                        Crear barbería
+                    </SheetButton>
+                    <SheetButton variant="ghost" disabled={isPending} onClick={() => setCreateOpen(false)}>
+                        Cancelar
+                    </SheetButton>
+                </div>
+            </BottomSheet>
+        </div>
+    );
+}

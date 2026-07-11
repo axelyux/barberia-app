@@ -1,0 +1,33 @@
+{
+  "name": "barber",
+  "version": "1.0.0",
+  "description": "Chatbot de WhatsApp para Sable Barber Studio",
+  "main": "app.js",
+  "type": "module",
+  "workspaces": [
+    "dashboard"
+  ],
+  "scripts": {
+    "start": "node --env-file=.env app.js",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "prisma studio",
+    "dashboard:dev": "npm run dev --workspace dashboard"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@builderbot/bot": "^1.4.2",
+    "@builderbot/database-json": "^1.4.2",
+    "@builderbot/provider-baileys": "^1.4.2",
+    "@prisma/client": "^6.19.3",
+    "baileys": "7.0.0-rc13",
+    "prisma": "^6.19.3",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "overrides": {
+    "baileys": "7.0.0-rc13",
+    "postcss": "^8.5.10"
+  }
+}

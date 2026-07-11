@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  PAST_DUE
+  PAUSED
+}
+
+enum FlowMessageKey {
+  WELCOME
+  SERVICES_INTRO
+  BOOKING_ASK_DAY
+  BOOKING_ASK_TIME
+  BOOKING_CONFIRMED
+  CONTACT
+  CLOSED
+}
+
+enum BookingStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum StaffRole {
+  ADMIN
+  USUARIO
+}
+
+enum Module {
+  CITAS
+  SERVICIOS
+  PRODUCTOS
+  FINANZAS
+  BOT
+  SEGURIDAD
+}
+
+enum ExpenseCategory {
+  RENTA
+  INSUMOS
+  SERVICIOS
+  NOMINA
+  OTRO
+}
+
+model Tenant {
+  id             String       @id @default(cuid())
+  slug           String       @unique
+  name           String
+  ownerName      String?
+  whatsappNumber String?      @unique
+  status         TenantStatus @default(ACTIVE)
+  planPriceCents Int          @default(20000)
+  nextDueDate    DateTime?
+  logoUrl        String?
+  brandColor     String       @default("#D9A441")
+  createdAt      DateTime     @default(now())
+
+  services     Service[]
+  products     Product[]
+  promotions   Promotion[]
+  flowMessages FlowMessage[]
+  bookings     Booking[]
+  payments     Payment[]
+  productSales     ProductSale[]
+  productPurchases ProductPurchase[]
+  users            StaffUser[]
+  expenses         Expense[]
+  businessHours    BusinessHour[]
+  ignoredContacts  IgnoredContact[]
+}
+
+// Números que el bot debe ignorar por completo (ej. contactos personales del dueño, si usa su número propio).
+model IgnoredContact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone     String
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, phone])
+}
+
+// weekday: 0=domingo, 1=lunes, ... 6=sábado. open/closeMin: minutos desde medianoche (9:00 = 540).
+model BusinessHour {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  weekday  Int
+  isClosed Boolean @default(false)
+  openMin  Int     @default(540)
+  closeMin Int     @default(1200)
+
+  @@unique([tenantId, weekday])
+}
+
+model StaffUser {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  username     String
+  passwordHash String
+  role         StaffRole @default(USUARIO)
+
+  permissions Permission[]
+  pushTokens  PushToken[]
+  createdAt   DateTime     @default(now())
+
+  @@unique([tenantId, username])
+}
+
+// Token del dispositivo (celular) de cada usuario, para poder mandarle notificaciones push.
+model PushToken {
+  id          String    @id @default(cuid())
+  staffUserId String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  token       String    @unique
+  platform    String    @default("android")
+  createdAt   DateTime  @default(now())
+}
+
+model Permission {
+  id          String    @id @default(cuid())
+  staffUserId String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  module      Module
+  canView     Boolean   @default(false)
+  canAdd      Boolean   @default(false)
+  canEdit     Boolean   @default(false)
+  canDelete   Boolean   @default(false)
+
+  @@unique([staffUserId, module])
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category    ExpenseCategory
+  description String
+  amountCents Int
+  createdAt   DateTime        @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  priceCents  Int
+  durationMin Int     @default(30)
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  bookings Booking[]
+
+  @@index([tenantId])
+}
+
+model Product {
+  id         String  @id @default(cuid())
+  tenantId   String
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  priceCents Int
+  stock      Int     @default(0)
+  active     Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  sales     ProductSale[]
+  purchases ProductPurchase[]
+
+  @@index([tenantId])
+}
+
+model ProductPurchase {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Int
+  costCents   Int
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model ProductSale {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  productName String
+  priceCents  Int
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Promotion {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  text      String
+  startsAt  DateTime?
+  endsAt    DateTime?
+  active    Boolean   @default(true)
+
+  @@index([tenantId])
+}
+
+model FlowMessage {
+  id       String         @id @default(cuid())
+  tenantId String
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key      FlowMessageKey
+  text     String
+
+  @@unique([tenantId, key])
+}
+
+model Booking {
+  id                String        @id @default(cuid())
+  tenantId          String
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerName      String?
+  customerPhone     String
+  serviceId         String?
+  service           Service?      @relation(fields: [serviceId], references: [id])
+  day               String
+  time              String
+  scheduledAt       DateTime?
+  durationMin       Int           @default(30)
+  status            BookingStatus @default(PENDING)
+  priceChargedCents Int?
+  createdAt         DateTime      @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, scheduledAt])
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amountCents Int
+  paidAt     DateTime @default(now())
+  periodEnd  DateTime
+
+  @@index([tenantId])
+}

@@ -1,0 +1,9 @@
+{
+  "appId": "com.barbersaas.app",
+  "appName": "Barber SaaS",
+  "webDir": "public",
+  "server": {
+    "url": "http://CAMBIA-ESTA-IP:3001",
+    "cleartext": true
+  }
+}
