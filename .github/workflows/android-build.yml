@@ -23,6 +23,16 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      # Sin esto, Gradle genera una llave de depuración aleatoria nueva en cada corrida,
+      # y Android rechaza instalar un APK nuevo sobre uno viejo firmado con otra llave
+      # ("conflicto con un paquete"). Al cachearla, todas las corridas futuras firman
+      # con la misma llave y el APK nuevo siempre puede reemplazar al anterior.
+      - name: Cachear la llave de depuración de Android
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore
+
       - name: Instalar dependencias
         run: npm install
 
