@@ -3,9 +3,15 @@
 import { useEffect } from "react";
 import { registerPushToken } from "@/app/push-actions";
 
+// Desactivado por ahora: sin google-services.json, Firebase nunca se inicializa del lado nativo
+// de Android, y llamar a PushNotifications.register() ahí truena la app entera (crash nativo,
+// no capturable desde JS). Reactivar quitando este "return" cuando ya esté configurado Firebase.
+const PUSH_ENABLED = false;
+
 // Solo hace algo cuando corre DENTRO de la app de Capacitor (en el navegador normal no pasa nada).
 export default function PushNotificationSetup() {
     useEffect(() => {
+        if (!PUSH_ENABLED) return;
         let cleanup = () => {};
 
         (async () => {

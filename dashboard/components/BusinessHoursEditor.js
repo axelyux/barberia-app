@@ -48,40 +48,42 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                 <p className="mb-3 text-xs text-zinc-500">
                     El bot avisa automáticamente si te escriben fuera de estas horas.
                 </p>
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3">
                     {days.map((d) => (
-                        <div key={d.weekday} className="flex items-center gap-2.5">
-                            <span className="w-[76px] shrink-0 text-[12.5px] font-semibold text-zinc-300">{DAY_LABELS[d.weekday]}</span>
-                            <label className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-zinc-400">
-                                <input
-                                    type="checkbox"
-                                    disabled={!perms.canEdit}
-                                    checked={!d.isClosed}
-                                    onChange={(e) => update(d.weekday, { isClosed: !e.target.checked })}
-                                    className="h-4 w-4 rounded-sm border-zinc-600 bg-zinc-800"
-                                />
-                                Abierto
-                            </label>
+                        <div key={d.weekday} className="flex flex-col gap-1.5 border-b border-zinc-800 pb-3 last:border-b-0 last:pb-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[12.5px] font-semibold text-zinc-300">{DAY_LABELS[d.weekday]}</span>
+                                <label className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-zinc-400">
+                                    <input
+                                        type="checkbox"
+                                        disabled={!perms.canEdit}
+                                        checked={!d.isClosed}
+                                        onChange={(e) => update(d.weekday, { isClosed: !e.target.checked })}
+                                        className="h-4 w-4 rounded-sm border-zinc-600 bg-zinc-800"
+                                    />
+                                    Abierto
+                                </label>
+                            </div>
                             {!d.isClosed ? (
-                                <div className="flex flex-1 items-center gap-1.5">
+                                <div className="flex min-w-0 items-center gap-1.5">
                                     <input
                                         type="time"
                                         disabled={!perms.canEdit}
                                         value={minToHHMM(d.openMin)}
                                         onChange={(e) => update(d.weekday, { openMin: hhmmToMin(e.target.value) })}
-                                        className="h-9 flex-1 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 text-[12.5px] text-zinc-50"
+                                        className="h-9 w-0 min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800/60 px-1.5 text-[12.5px] text-zinc-50"
                                     />
-                                    <span className="text-zinc-600">–</span>
+                                    <span className="shrink-0 text-zinc-600">–</span>
                                     <input
                                         type="time"
                                         disabled={!perms.canEdit}
                                         value={minToHHMM(d.closeMin)}
                                         onChange={(e) => update(d.weekday, { closeMin: hhmmToMin(e.target.value) })}
-                                        className="h-9 flex-1 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 text-[12.5px] text-zinc-50"
+                                        className="h-9 w-0 min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800/60 px-1.5 text-[12.5px] text-zinc-50"
                                     />
                                 </div>
                             ) : (
-                                <span className="flex-1 text-[12.5px] text-zinc-600">Cerrado</span>
+                                <span className="text-[12.5px] text-zinc-600">Cerrado</span>
                             )}
                         </div>
                     ))}

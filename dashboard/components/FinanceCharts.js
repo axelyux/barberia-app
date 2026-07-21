@@ -55,6 +55,31 @@ export function RevenueExpenseChart({ daily }) {
     );
 }
 
+export function TopProductsChart({ topProducts }) {
+    if (topProducts.length === 0) return null;
+    const max = Math.max(1, ...topProducts.map((p) => p.revenueCents));
+    return (
+        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+            <p className="mb-3 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Productos más vendidos · 30 días</p>
+            <div className="flex flex-col gap-2.5">
+                {topProducts.map((p) => (
+                    <div key={p.name}>
+                        <div className="mb-1 flex items-center justify-between text-[12.5px]">
+                            <span className="truncate font-semibold text-zinc-200">
+                                {p.name} <span className="text-zinc-500">· {p.quantity}x</span>
+                            </span>
+                            <span className="font-numeric shrink-0 font-semibold text-zinc-100">{money(p.revenueCents)}</span>
+                        </div>
+                        <div className="h-2 w-full rounded-sm bg-zinc-800">
+                            <div className="h-2 rounded-sm" style={{ width: `${Math.max(4, (p.revenueCents / max) * 100)}%`, background: GOOD }} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function CategoryBreakdown({ categoryTotals }) {
     const max = Math.max(1, ...categoryTotals.map((c) => c.amountCents));
     return (

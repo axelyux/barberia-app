@@ -6,6 +6,9 @@ const startOfDay = (d) => {
     return x;
 };
 
+const itemName = (s) => s.productName ?? s.serviceName;
+const netTotalOf = (s) => (s.priceCents ?? 0) - (s.discountCents ?? 0) + (s.tipCents ?? 0);
+
 export const EXPENSE_CATEGORY_META = {
     RENTA: { label: "Renta", color: "#3987e5" },
     INSUMOS: { label: "Insumos", color: "#199e70" },
@@ -15,7 +18,8 @@ export const EXPENSE_CATEGORY_META = {
 };
 
 // Arma la serie diaria (7 días) de ingresos vs gastos, y el desglose de gastos por categoría (30 días).
-export function buildFinanceData({ completedBookings, productSales, expenses30 }) {
+export function buildFinanceData({ completedBookings, productSales, serviceSales = [], expenses30, barbers = [] }) {
+    const sales = [...productSales, ...serviceSales];
     const today0 = startOfDay(new Date());
     const days = [];
     for (let i = 6; i >= 0; i--) {
@@ -26,11 +30,11 @@ export function buildFinanceData({ completedBookings, productSales, expenses30 }
 
     for (const b of completedBookings) {
         const key = new Date(b.scheduledAt ?? b.createdAt).toDateString();
-        if (dayByKey[key]) dayByKey[key].revenueCents += b.priceChargedCents ?? 0;
+        if (dayByKey[key]) dayByKey[key].revenueCents += b.amountPaidCents ?? 0;
     }
-    for (const s of productSales) {
+    for (const s of sales) {
         const key = new Date(s.createdAt).toDateString();
-        if (dayByKey[key]) dayByKey[key].revenueCents += s.priceCents;
+        if (dayByKey[key]) dayByKey[key].revenueCents += s.amountPaidCents ?? 0;
     }
     for (const e of expenses30) {
         const key = new Date(e.createdAt).toDateString();
@@ -44,9 +48,42 @@ export function buildFinanceData({ completedBookings, productSales, expenses30 }
     }));
 
     const revenue30 =
-        completedBookings.reduce((sum, b) => sum + (b.priceChargedCents ?? 0), 0) +
-        productSales.reduce((sum, s) => sum + s.priceCents, 0);
+        completedBookings.reduce((sum, b) => sum + (b.amountPaidCents ?? 0), 0) + sales.reduce((sum, s) => sum + (s.amountPaidCents ?? 0), 0);
     const expense30 = expenses30.reduce((sum, e) => sum + e.amountCents, 0);
+
+    const barberBreakdown = barbers
+        .map((barber) => {
+            const bookingRevenue = completedBookings
+                .filter((b) => b.barberId === barber.id)
+                .reduce((sum, b) => sum + (b.amountPaidCents ?? 0), 0);
+            const saleRevenue = sales.filter((s) => s.barberId === barber.id).reduce((sum, s) => sum + (s.amountPaidCents ?? 0), 0);
+            const revenueCents = bookingRevenue + saleRevenue;
+            return {
+                id: barber.id,
+                name: barber.name,
+                commissionPercent: barber.commissionPercent,
+                revenueCents,
+                commissionCents: Math.round((revenueCents * barber.commissionPercent) / 100),
+            };
+        })
+        .filter((b) => b.revenueCents > 0)
+        .sort((a, b) => b.revenueCents - a.revenueCents);
+
+    const itemTotals = new Map();
+    for (const s of sales) {
+        const name = itemName(s);
+        const entry = itemTotals.get(name) ?? { name, quantity: 0, revenueCents: 0 };
+        entry.quantity += s.quantity ?? 1;
+        entry.revenueCents += s.amountPaidCents ?? 0;
+        itemTotals.set(name, entry);
+    }
+    const topProducts = [...itemTotals.values()].sort((a, b) => b.revenueCents - a.revenueCents).slice(0, 5);
+
+    const pendingCents =
+        completedBookings
+            .filter((b) => b.paymentStatus !== "PAGADO")
+            .reduce((sum, b) => sum + ((b.priceChargedCents ?? 0) - (b.amountPaidCents ?? 0)), 0) +
+        sales.filter((s) => s.paymentStatus !== "PAGADO").reduce((sum, s) => sum + (netTotalOf(s) - (s.amountPaidCents ?? 0)), 0);
 
     return {
         daily: days,
@@ -54,5 +91,8 @@ export function buildFinanceData({ completedBookings, productSales, expenses30 }
         revenue30,
         expense30,
         profit30: revenue30 - expense30,
+        barberBreakdown,
+        topProducts,
+        pendingCents,
     };
 }

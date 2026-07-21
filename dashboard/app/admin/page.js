@@ -1,9 +1,14 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSuperAdmin } from "@/lib/auth";
 import AdminBoard from "@/components/AdminBoard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
+    const admin = await getSuperAdmin();
+    if (!admin) redirect("/admin/login");
+
     const tenants = await prisma.tenant.findMany({ orderBy: { createdAt: "asc" } });
 
     const monthlyRevenueCents = tenants
@@ -19,7 +24,7 @@ export default async function AdminPage() {
 
     return (
         <main className="min-h-screen bg-zinc-950">
-            <AdminBoard tenants={plainTenants} monthlyRevenueCents={monthlyRevenueCents} />
+            <AdminBoard tenants={plainTenants} monthlyRevenueCents={monthlyRevenueCents} adminName={admin.name} />
         </main>
     );
 }

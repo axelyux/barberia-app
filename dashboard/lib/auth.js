@@ -6,6 +6,7 @@ export { hashPassword, verifyPassword } from "@/lib/password";
 
 const SECRET = process.env.SESSION_SECRET ?? "dev-only-insecure-secret-change-me";
 const COOKIE_NAME = "barber_session";
+const ADMIN_COOKIE_NAME = "barber_admin_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
 const b64url = (buf) => Buffer.from(buf).toString("base64url");
@@ -70,4 +71,35 @@ export async function requirePermission(moduleKey, action) {
     const field = { view: "canView", add: "canAdd", edit: "canEdit", delete: "canDelete" }[action];
     if (!perm?.[field]) throw new Error("No tienes permiso para hacer esto.");
     return user;
+}
+
+// --- Sesión del dueño de la plataforma (admin supremo), separada de la de cada barbería ---
+
+export async function createAdminSession(superAdminId) {
+    const token = sign({ uid: superAdminId, exp: Date.now() + SESSION_TTL_MS });
+    const store = await cookies();
+    store.set(ADMIN_COOKIE_NAME, token, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: SESSION_TTL_MS / 1000,
+    });
+}
+
+export async function destroyAdminSession() {
+    const store = await cookies();
+    store.delete(ADMIN_COOKIE_NAME);
+}
+
+export async function getSuperAdmin() {
+    const store = await cookies();
+    const payload = unsign(store.get(ADMIN_COOKIE_NAME)?.value);
+    if (!payload) return null;
+    return prisma.superAdmin.findUnique({ where: { id: payload.uid } });
+}
+
+export async function requireSuperAdmin() {
+    const admin = await getSuperAdmin();
+    if (!admin) throw new Error("Debes iniciar sesión como administrador.");
+    return admin;
 }

@@ -6,11 +6,16 @@ import { Field, TextInput } from "@/components/FormField";
 
 const initialState = { error: null };
 
-export default function LoginForm() {
-    const [state, formAction, isPending] = useActionState(login, initialState);
+export default function LoginForm({ action = login, showTenantField = true }) {
+    const [state, formAction, isPending] = useActionState(action, initialState);
 
     return (
         <form action={formAction} className="flex w-full max-w-xs flex-col gap-3">
+            {showTenantField ? (
+                <Field label="Barbería (slug de tu URL)">
+                    <TextInput name="tenantSlug" type="text" required placeholder="sable-barber-studio" autoComplete="off" />
+                </Field>
+            ) : null}
             <Field label="Usuario">
                 <TextInput name="username" type="text" required placeholder="admin" autoComplete="username" />
             </Field>

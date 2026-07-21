@@ -47,6 +47,62 @@ export function IconFinance(props) {
     );
 }
 
+export function IconSales(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>
+            <path d="M4 4h2l1.6 9.6a2 2 0 0 0 2 1.7h7.1a2 2 0 0 0 2-1.6L20 8H7" />
+            <circle cx="9.5" cy="19.5" r="1.3" fill="currentColor" />
+            <circle cx="16.5" cy="19.5" r="1.3" fill="currentColor" />
+        </svg>
+    );
+}
+
+export function IconExpense(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>
+            <path d="M6 3.5h12v17l-2.5-1.6L13 20l-2.5-1.6L8 20l-2-1.5V3.5Z" />
+            <path d="M9 8.5h6M9 12h6" />
+        </svg>
+    );
+}
+
+export function IconInventory(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>
+            <path d="M3.5 8 12 3.5 20.5 8 12 12.5 3.5 8Z" />
+            <path d="M3.5 8v8L12 20.5 20.5 16V8M12 12.5v8" />
+        </svg>
+    );
+}
+
+export function IconPurchases(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>
+            <path d="M4.5 7.5h15l-1.3 9.4a2 2 0 0 1-2 1.6H7.8a2 2 0 0 1-2-1.6L4.5 7.5Z" />
+            <path d="M8 7.5V6a4 4 0 0 1 8 0v1.5M12 11v5M9.5 13.5 12 16l2.5-2.5" />
+        </svg>
+    );
+}
+
+export function IconWorkers(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>
+            <circle cx="12" cy="8" r="3.3" />
+            <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" />
+        </svg>
+    );
+}
+
+export function IconCustomers(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>
+            <circle cx="9" cy="8" r="3" />
+            <path d="M3 20c0-3.3 2.7-5.7 6-5.7s6 2.4 6 5.7" />
+            <path d="M15.5 5.3a3 3 0 0 1 0 5.8M19 20c0-2.6-1.6-4.7-3.8-5.5" />
+        </svg>
+    );
+}
+
 export function IconSettings(props) {
     return (
         <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>

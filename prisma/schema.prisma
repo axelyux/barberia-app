@@ -51,6 +51,46 @@ enum ExpenseCategory {
   OTRO
 }
 
+// Los 9 métodos de pago más usados en México + "otro" como comodín.
+enum PaymentMethod {
+  EFECTIVO
+  TARJETA_DEBITO
+  TARJETA_CREDITO
+  TRANSFERENCIA
+  DEPOSITO
+  PAYPAL
+  MERCADO_PAGO
+  CODI
+  VALES_DESPENSA
+  OTRO
+}
+
+enum PaymentStatus {
+  PAGADO
+  PARCIAL
+  NO_PAGADO
+}
+
+enum ShiftStatus {
+  ABIERTO
+  CERRADO
+}
+
+enum BarberPaymentType {
+  COMISION
+  SUELDO
+  MIXTO
+}
+
+// El dueño de la plataforma (tú) — separado de StaffUser porque no pertenece a ninguna barbería.
+model SuperAdmin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
 model Tenant {
   id             String       @id @default(cuid())
   slug           String       @unique
@@ -71,11 +111,125 @@ model Tenant {
   bookings     Booking[]
   payments     Payment[]
   productSales     ProductSale[]
-  productPurchases ProductPurchase[]
   users            StaffUser[]
   expenses         Expense[]
   businessHours    BusinessHour[]
   ignoredContacts  IgnoredContact[]
+  barbers          Barber[]
+  customers        Customer[]
+  serviceSales     ServiceSale[]
+  shiftTypes       ShiftType[]
+  cashShifts       CashShift[]
+}
+
+// Tipos de turno configurables por barbería (ej. "Mañana", "Tarde", "Día completo").
+model ShiftType {
+  id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  shifts    CashShift[]
+
+  @@unique([tenantId, name])
+}
+
+// Un turno de caja: se abre al iniciar sesión (con monto inicial) y se cierra al terminar
+// (con monto final contado). Solo el efectivo entra a la reconciliación de caja.
+model CashShift {
+  id                  String      @id @default(cuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shiftTypeId         String?
+  shiftType           ShiftType?  @relation(fields: [shiftTypeId], references: [id], onDelete: SetNull)
+  status              ShiftStatus @default(ABIERTO)
+  openedByName        String
+  closedByName        String?
+  openingCashCents    Int
+  closingCashCents    Int?
+  cashRevenueCents    Int?
+  cashExpenseCents    Int?
+  expectedCashCents   Int?
+  cashDifferenceCents Int?
+  totalRevenueCents   Int?
+  totalExpenseCents   Int?
+  salesCount          Int?
+  notes               String?
+  startedAt           DateTime    @default(now())
+  endedAt             DateTime?
+
+  @@index([tenantId, startedAt])
+  @@index([tenantId, status])
+}
+
+// Cliente registrado de la barbería (para no volver a escribir nombre/teléfono cada vez).
+model Customer {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  phone             String
+  notes             String?
+  email             String?
+  birthDate         DateTime?
+  preferredBarberId String?
+  preferredBarber   Barber?   @relation(fields: [preferredBarberId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+
+  bookings     Booking[]
+  productSales ProductSale[]
+  serviceSales ServiceSale[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+}
+
+// Venta de un servicio cobrado directo en el mostrador (sin pasar por el flujo de Agenda/citas).
+model ServiceSale {
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceId     String?
+  service       Service?      @relation(fields: [serviceId], references: [id])
+  serviceName   String
+  priceCents    Int
+  barberId      String?
+  barber        Barber?       @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  customerId    String?
+  customer      Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  paymentMethod PaymentMethod @default(EFECTIVO)
+  paymentStatus PaymentStatus @default(PAGADO)
+  amountPaidCents Int         @default(0)
+  quantity      Int           @default(1)
+  discountCents Int           @default(0)
+  tipCents      Int           @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+// Barbero/empleado al que se le puede asignar una cita o venta, para calcular su comisión.
+model Barber {
+  id                String            @id @default(cuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  phone             String?
+  specialty         String?
+  paymentType       BarberPaymentType @default(COMISION)
+  commissionPercent Float             @default(40)
+  salaryCents       Int?
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+
+  bookings          Booking[]
+  productSales      ProductSale[]
+  serviceSales      ServiceSale[]
+  preferredByCustomers Customer[]
+
+  @@index([tenantId])
 }
 
 // Números que el bot debe ignorar por completo (ej. contactos personales del dueño, si usa su número propio).
@@ -149,6 +303,15 @@ model Expense {
   category    ExpenseCategory
   description String
   amountCents Int
+  // Si el gasto es una compra de stock a proveedor: qué producto y cuántas piezas se sumaron.
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  quantity    Int?
+  paymentMethod PaymentMethod @default(EFECTIVO)
+  vendor        String?
+  receiptNumber String?
+  isRecurring   Boolean         @default(false)
+  paidByName    String?
   createdAt   DateTime        @default(now())
 
   @@index([tenantId, createdAt])
@@ -164,49 +327,49 @@ model Service {
   active      Boolean @default(true)
   sortOrder   Int     @default(0)
 
-  bookings Booking[]
+  bookings     Booking[]
+  serviceSales ServiceSale[]
 
   @@index([tenantId])
 }
 
 model Product {
-  id         String  @id @default(cuid())
-  tenantId   String
-  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name       String
-  priceCents Int
-  stock      Int     @default(0)
-  active     Boolean @default(true)
-  sortOrder  Int     @default(0)
+  id                 String  @id @default(cuid())
+  tenantId           String
+  tenant             Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name               String
+  priceCents         Int
+  stock              Int     @default(0)
+  lowStockThreshold  Int     @default(3)
+  active             Boolean @default(true)
+  sortOrder          Int     @default(0)
 
-  sales     ProductSale[]
-  purchases ProductPurchase[]
+  sales    ProductSale[]
+  expenses Expense[]
 
   @@index([tenantId])
 }
 
-model ProductPurchase {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity    Int
-  costCents   Int
-  createdAt   DateTime @default(now())
-
-  @@index([tenantId, createdAt])
-}
-
 model ProductSale {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id])
-  productName String
-  priceCents  Int
-  createdAt   DateTime @default(now())
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?      @relation(fields: [productId], references: [id])
+  productName   String
+  priceCents    Int
+  barberId      String?
+  barber        Barber?       @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  customerId    String?
+  customer      Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  paymentMethod PaymentMethod @default(EFECTIVO)
+  paymentStatus PaymentStatus @default(PAGADO)
+  amountPaidCents Int         @default(0)
+  quantity      Int           @default(1)
+  discountCents Int           @default(0)
+  tipCents      Int           @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
 
   @@index([tenantId, createdAt])
 }
@@ -234,20 +397,29 @@ model FlowMessage {
 }
 
 model Booking {
-  id                String        @id @default(cuid())
+  id                String         @id @default(cuid())
   tenantId          String
-  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customerName      String?
   customerPhone     String
   serviceId         String?
-  service           Service?      @relation(fields: [serviceId], references: [id])
+  service           Service?       @relation(fields: [serviceId], references: [id])
+  barberId          String?
+  barber            Barber?        @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  customerId        String?
+  customer          Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
   day               String
   time              String
   scheduledAt       DateTime?
-  durationMin       Int           @default(30)
-  status            BookingStatus @default(PENDING)
+  durationMin       Int            @default(30)
+  status            BookingStatus  @default(PENDING)
   priceChargedCents Int?
-  createdAt         DateTime      @default(now())
+  paymentMethod     PaymentMethod?
+  paymentStatus     PaymentStatus  @default(PAGADO)
+  amountPaidCents   Int            @default(0)
+  reminderSentAt    DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime       @default(now())
 
   @@index([tenantId, createdAt])
   @@index([tenantId, scheduledAt])

@@ -19,7 +19,11 @@ import {
     saveBooking,
     setTenantWhatsappNumber,
     centsToText,
+    getBookingsNeedingReminder,
+    markReminderSent,
+    getTenantId,
 } from './lib/tenant.js'
+import { notifyNewBooking, notifyConnectionLost } from './dashboard/lib/push.js'
 import { parseTimeText, parseDayChoice, matchServiceChoice, findCatalogMatch } from './lib/parsing.js'
 import { findConflict, findNearestAvailableSlots, isWithinBusinessHours, formatTime12h, formatMinutesLabel } from './dashboard/lib/scheduling.js'
 
@@ -153,19 +157,29 @@ const flowCitas = addKeyword(['1', 'agendar', 'cita', 'reservar'])
 
         await state.update({ scheduledAt: scheduledAt.toISOString() })
     })
-    .addAnswer(null, null, async (ctx, { state, flowDynamic }) => {
+    .addAnswer(null, null, async (ctx, { state, flowDynamic, endFlow }) => {
         const { serviceName, priceCents, durationMin, scheduledAt, serviceId } = state.getMyState()
         const when = new Date(scheduledAt)
 
-        await saveBooking({
-            customerPhone: ctx.from,
-            serviceId: serviceId ?? undefined,
-            durationMin,
-            priceChargedCents: priceCents ?? undefined,
-            scheduledAt: when,
-            day: when.toLocaleDateString('es-MX'),
-            time: formatTime12h(when),
-        })
+        // Si la base de datos falla justo aquí (ej. se cayó la conexión un instante), avisamos
+        // en vez de dejar al cliente sin respuesta pensando que su cita ya quedó agendada.
+        try {
+            await saveBooking({
+                customerPhone: ctx.from,
+                serviceId: serviceId ?? undefined,
+                durationMin,
+                priceChargedCents: priceCents ?? undefined,
+                scheduledAt: when,
+                day: when.toLocaleDateString('es-MX'),
+                time: formatTime12h(when),
+            })
+        } catch (err) {
+            console.error('❌ No se pudo guardar la cita:', err)
+            return endFlow('Tuvimos un problema guardando tu cita. Por favor intenta de nuevo en un momento, o contáctanos directo.')
+        }
+
+        const tenantId = await getTenantId()
+        notifyNewBooking(tenantId, { when, serviceName }).catch((err) => console.error('❌ No se pudo enviar la notificación push:', err))
 
         const confirmText = await getFlowMessage('BOOKING_CONFIRMED', 'Te esperamos.')
         const serviceLine = serviceName ? `💈 Servicio: ${serviceName} — ${centsToText(priceCents)}` : null
@@ -217,6 +231,11 @@ const main = async () => {
 
     const adapterDB = new JsonFileDB({ filename: 'db.json' })
     const adapterFlow = createFlow([flowBienvenida, flowServicios, flowPrecioEspecifico, flowCitas, flowContacto])
+    // Todos los flujos de arriba solo hablan con el `provider` de builderbot, nunca
+    // directo con Baileys. El día que se necesite migrar a la API oficial de Meta,
+    // basta con cambiar esta línea por `createProvider(MetaProvider, {...})` usando
+    // el paquete `@builderbot/provider-meta` (ya publicado, misma versión que el
+    // resto de builderbot) — ningún flujo de arriba necesita reescribirse.
     const adapterProvider = createProvider(BaileysProvider, version ? { version } : {})
 
     adapterProvider.on('require_action', (data) => {
@@ -228,6 +247,18 @@ const main = async () => {
 
     adapterProvider.on('host', async (host) => {
         if (host?.phone) await setTenantWhatsappNumber(host.phone)
+    })
+
+    // El proveedor ya reintenta reconectar solo (con backoff); esto solo nos avisa cuando
+    // se le acabaron los intentos, para no quedarnos sin saber que el bot dejó de contestar.
+    adapterProvider.on('auth_failure', async (payload) => {
+        console.error('⚠️ El bot perdió la conexión con WhatsApp:', payload)
+        try {
+            const tenantId = await getTenantId()
+            await notifyConnectionLost(tenantId)
+        } catch (err) {
+            console.error('❌ No se pudo avisar de la desconexión:', err)
+        }
     })
 
     const initialIgnored = await getIgnoredNumbers()
@@ -252,6 +283,24 @@ const main = async () => {
             console.error('❌ No se pudo sincronizar la lista de contactos ignorados:', err)
         }
     }, 60_000)
+
+    // Recordatorio de cita ~1h antes, por WhatsApp.
+    setInterval(async () => {
+        try {
+            const bookings = await getBookingsNeedingReminder()
+            for (const booking of bookings) {
+                const when = formatTime12h(new Date(booking.scheduledAt))
+                const serviceLine = booking.service ? ` (${booking.service.name})` : ''
+                await adapterProvider.sendMessage(
+                    booking.customerPhone,
+                    `⏰ Recordatorio: tienes una cita hoy a las ${when}${serviceLine}. ¡Te esperamos!`
+                )
+                await markReminderSent(booking.id)
+            }
+        } catch (err) {
+            console.error('❌ No se pudieron enviar los recordatorios de citas:', err)
+        }
+    }, 5 * 60_000)
 
     bot.httpServer(PORT)
     console.log(`✅ Bot corriendo en el puerto ${PORT} (tenant: ${process.env.TENANT_SLUG ?? 'sable-barber-studio'})`)

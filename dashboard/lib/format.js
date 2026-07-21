@@ -15,6 +15,23 @@ export const timeAgo = (date) => {
 export const shortDate = (date) =>
     new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
 
+export const shortDateTime = (date) =>
+    new Date(date).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+
+// Para inputs <input type="datetime-local">: "YYYY-MM-DDTHH:mm" en hora local.
+export const toDatetimeLocalValue = (date) => {
+    const d = new Date(date)
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Para inputs <input type="date">: "YYYY-MM-DD" en hora local.
+export const toDateInputValue = (date) => {
+    const d = new Date(date)
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 export const TENANT_STATUS_META = {
     ACTIVE: { tone: 'good', label: 'Pagado' },
     PAST_DUE: { tone: 'warn', label: 'Por vencer' },

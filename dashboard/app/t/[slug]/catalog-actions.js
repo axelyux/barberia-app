@@ -49,8 +49,8 @@ export async function deleteService(serviceId, slug) {
     revalidatePath(`/t/${slug}`);
 }
 
-// ----------------------------------------------------------------- Productos
-export async function createProduct(slug, { name, priceCents, stock }) {
+// ----------------------------------------------------------------- Productos (inventario)
+export async function createProduct(slug, { name, priceCents, stock, lowStockThreshold }) {
     await requirePermission("PRODUCTOS", "add");
     if (!name?.trim()) throw new Error("El nombre del producto es obligatorio");
     const tenantId = await tenantIdFromSlug(slug);
@@ -61,12 +61,13 @@ export async function createProduct(slug, { name, priceCents, stock }) {
             name: name.trim(),
             priceCents: Math.max(0, Math.round(priceCents) || 0),
             stock: Math.max(0, Math.round(stock) || 0),
+            lowStockThreshold: Math.max(0, Math.round(lowStockThreshold) || 3),
         },
     });
     revalidatePath(`/t/${slug}`);
 }
 
-export async function updateProduct(productId, slug, { name, priceCents, stock, active }) {
+export async function updateProduct(productId, slug, { name, priceCents, stock, lowStockThreshold, active }) {
     await requirePermission("PRODUCTOS", "edit");
     if (!name?.trim()) throw new Error("El nombre del producto es obligatorio");
 
@@ -76,6 +77,7 @@ export async function updateProduct(productId, slug, { name, priceCents, stock, 
             name: name.trim(),
             priceCents: Math.max(0, Math.round(priceCents) || 0),
             stock: Math.max(0, Math.round(stock) || 0),
+            lowStockThreshold: Math.max(0, Math.round(lowStockThreshold) || 3),
             active: !!active,
         },
     });
@@ -88,43 +90,16 @@ export async function deleteProduct(productId, slug) {
     revalidatePath(`/t/${slug}`);
 }
 
-// Venta: baja de stock (requiere poder agregar registros de producto/venta)
-export async function registerProductSale(slug, productId) {
-    await requirePermission("PRODUCTOS", "add");
-    const tenantId = await tenantIdFromSlug(slug);
+// Ajuste rápido de inventario (botones +/- en Inventario), sin pasar por una venta o compra.
+export async function adjustProductStock(productId, slug, delta) {
+    await requirePermission("PRODUCTOS", "edit");
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product) throw new Error("Producto no encontrado");
-    if (product.stock <= 0) throw new Error("No hay stock disponible de este producto.");
 
-    await prisma.$transaction([
-        prisma.productSale.create({
-            data: { tenantId, productId, productName: product.name, priceCents: product.priceCents },
-        }),
-        prisma.product.update({
-            where: { id: productId },
-            data: { stock: Math.max(0, product.stock - 1) },
-        }),
-    ]);
-    revalidatePath(`/t/${slug}`);
-}
-
-// Compra: alta de stock real (registro de compra a proveedor)
-export async function createProductPurchase(slug, { productId, quantity, costCents }) {
-    await requirePermission("PRODUCTOS", "add");
-    const tenantId = await tenantIdFromSlug(slug);
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new Error("Producto no encontrado");
-    const qty = Math.max(1, Math.round(quantity) || 1);
-
-    await prisma.$transaction([
-        prisma.productPurchase.create({
-            data: { tenantId, productId, quantity: qty, costCents: Math.max(0, Math.round(costCents) || 0) },
-        }),
-        prisma.product.update({
-            where: { id: productId },
-            data: { stock: product.stock + qty },
-        }),
-    ]);
+    await prisma.product.update({
+        where: { id: productId },
+        data: { stock: Math.max(0, product.stock + delta) },
+    });
     revalidatePath(`/t/${slug}`);
 }
 

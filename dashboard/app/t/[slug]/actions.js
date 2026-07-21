@@ -41,15 +41,29 @@ export async function getBookingsForDate(slug, dateISO) {
 
     const bookings = await prisma.booking.findMany({
         where: { tenantId, scheduledAt: { gte: dayStart, lt: dayEnd } },
-        include: { service: true },
+        include: { service: true, barber: true },
         orderBy: { scheduledAt: "asc" },
     });
-    return bookings.map((b) => ({ ...b, scheduledAt: b.scheduledAt?.toISOString() ?? null, createdAt: b.createdAt.toISOString() }));
+    return bookings.map((b) => ({
+        ...b,
+        scheduledAt: b.scheduledAt?.toISOString() ?? null,
+        createdAt: b.createdAt.toISOString(),
+        completedAt: b.completedAt?.toISOString() ?? null,
+    }));
 }
 
-export async function markBookingCompleted(bookingId, slug) {
+export async function markBookingCompleted(bookingId, slug, { paymentMethod = "EFECTIVO", paymentStatus = "PAGADO", amountPaidCents } = {}) {
     await requirePermission("CITAS", "edit");
-    await prisma.booking.update({ where: { id: bookingId }, data: { status: "COMPLETED" } });
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) throw new Error("Cita no encontrada");
+
+    const fullPrice = booking.priceChargedCents ?? 0;
+    const paid = paymentStatus === "NO_PAGADO" ? 0 : paymentStatus === "PARCIAL" ? Math.max(0, Math.min(fullPrice, Math.round(amountPaidCents) || 0)) : fullPrice;
+
+    await prisma.booking.update({
+        where: { id: bookingId },
+        data: { status: "COMPLETED", paymentMethod, paymentStatus, amountPaidCents: paid, completedAt: new Date() },
+    });
     revalidatePath(`/t/${slug}`);
 }
 
@@ -59,7 +73,7 @@ export async function cancelBooking(bookingId, slug) {
     revalidatePath(`/t/${slug}`);
 }
 
-export async function createBooking(slug, { customerName, customerPhone, serviceId, dateISO, hour, minute }) {
+export async function createBooking(slug, { customerName, customerPhone, serviceId, barberId, dateISO, hour, minute }) {
     await requirePermission("CITAS", "add");
     if (!customerName?.trim()) throw new Error("El nombre del cliente es obligatorio");
     const tenantId = await tenantIdFromSlug(slug);
@@ -82,6 +96,7 @@ export async function createBooking(slug, { customerName, customerPhone, service
             customerName: customerName.trim(),
             customerPhone: customerPhone?.trim() || "—",
             serviceId: service?.id,
+            barberId: barberId || null,
             day: dayStart.toLocaleDateString("es-MX"),
             time: formatTime12h(scheduledAt),
             scheduledAt,
@@ -93,7 +108,7 @@ export async function createBooking(slug, { customerName, customerPhone, service
     revalidatePath(`/t/${slug}`);
 }
 
-export async function updateBooking(bookingId, slug, { customerName, customerPhone, serviceId }) {
+export async function updateBooking(bookingId, slug, { customerName, customerPhone, serviceId, barberId }) {
     await requirePermission("CITAS", "edit");
     if (!customerName?.trim()) throw new Error("El nombre del cliente es obligatorio");
     const service = serviceId ? await prisma.service.findUnique({ where: { id: serviceId } }) : null;
@@ -104,6 +119,7 @@ export async function updateBooking(bookingId, slug, { customerName, customerPho
             customerName: customerName.trim(),
             customerPhone: customerPhone?.trim() || "—",
             serviceId: service?.id ?? null,
+            barberId: barberId || null,
             durationMin: service?.durationMin ?? undefined,
             priceChargedCents: service?.priceCents,
         },

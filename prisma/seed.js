@@ -90,14 +90,52 @@ const main = async () => {
         })
     }
 
-    // Productos (para el módulo de ventas rápidas)
+    // Productos (para el módulo de inventario/ventas — 6 para poder ver la paginación del grid)
     const existingProducts = await prisma.product.findMany({ where: { tenantId: sable.id } })
-    let [cera, shampoo, aceite] = ['Cera moldeadora', 'Shampoo anticaída', 'Aceite para barba'].map((n) =>
-        existingProducts.find((p) => p.name === n)
-    )
-    if (!cera) cera = await prisma.product.create({ data: { tenantId: sable.id, name: 'Cera moldeadora', priceCents: 18000, stock: 12, sortOrder: 1 } })
-    if (!shampoo) shampoo = await prisma.product.create({ data: { tenantId: sable.id, name: 'Shampoo anticaída', priceCents: 22000, stock: 8, sortOrder: 2 } })
-    if (!aceite) aceite = await prisma.product.create({ data: { tenantId: sable.id, name: 'Aceite para barba', priceCents: 15000, stock: 15, sortOrder: 3 } })
+    const productDefs = [
+        { name: 'Cera moldeadora', priceCents: 18000, stock: 12, sortOrder: 1 },
+        { name: 'Shampoo anticaída', priceCents: 22000, stock: 8, sortOrder: 2 },
+        { name: 'Aceite para barba', priceCents: 15000, stock: 15, sortOrder: 3 },
+        { name: 'Peine profesional', priceCents: 9000, stock: 20, sortOrder: 4 },
+        { name: 'Talco para barba', priceCents: 12000, stock: 2, lowStockThreshold: 5, sortOrder: 5 },
+        { name: 'Loción aftershave', priceCents: 16000, stock: 10, sortOrder: 6 },
+    ]
+    const productByName = {}
+    for (const def of productDefs) {
+        productByName[def.name] = existingProducts.find((p) => p.name === def.name) ?? (await prisma.product.create({ data: { tenantId: sable.id, ...def } }))
+    }
+    const [cera, shampoo, aceite, peine, talco, locion] = productDefs.map((d) => productByName[d.name])
+
+    // Equipo: 3 barberos con distintos tipos de pago (comisión, sueldo fijo, mixto)
+    const barberDefs = [
+        { name: 'Luis Torres', phone: '5219980001111', specialty: 'Fades, diseño de barba', paymentType: 'COMISION', commissionPercent: 45, salaryCents: null },
+        { name: 'Miguel Ángel Soto', phone: '5219980002222', specialty: 'Cortes clásicos', paymentType: 'SUELDO', commissionPercent: 0, salaryCents: 700000 },
+        { name: 'Ricardo Núñez', phone: '5219980003333', specialty: 'Barba y afeitado', paymentType: 'MIXTO', commissionPercent: 20, salaryCents: 350000 },
+    ]
+    const barbersByName = {}
+    for (const def of barberDefs) {
+        const existing = await prisma.barber.findFirst({ where: { tenantId: sable.id, name: def.name } })
+        barbersByName[def.name] = existing
+            ? await prisma.barber.update({ where: { id: existing.id }, data: def })
+            : await prisma.barber.create({ data: { tenantId: sable.id, ...def } })
+    }
+    const [luis, miguel, ricardo] = barberDefs.map((d) => barbersByName[d.name])
+
+    // Clientes frecuentes (con cumpleaños, correo y barbero preferido)
+    const customerDefs = [
+        { name: 'Carlos Medina', phone: '5219981234567', email: 'carlos.medina@gmail.com', birthDate: new Date('1992-07-15'), preferredBarberId: luis.id },
+        { name: 'Jorge Ibarra', phone: '5219981234568', email: 'jorge.ibarra@gmail.com', birthDate: new Date('1988-11-02'), preferredBarberId: miguel.id },
+        { name: 'Daniel Reyes', phone: '5219981234570', notes: 'Prefiere cita temprano', preferredBarberId: ricardo.id },
+    ]
+    const customersByPhone = {}
+    for (const def of customerDefs) {
+        customersByPhone[def.phone] = await prisma.customer.upsert({
+            where: { tenantId_phone: { tenantId: sable.id, phone: def.phone } },
+            update: def,
+            create: { tenantId: sable.id, ...def },
+        })
+    }
+    const [carlosC, jorgeC, danielC] = customerDefs.map((d) => customersByPhone[d.phone])
 
     // Citas de hoy (borra las de hoy antes de re-sembrar, para poder correr el seed varias veces)
     const startOfToday = todayAt(0, 0)
@@ -107,39 +145,61 @@ const main = async () => {
     })
 
     const todaysBookings = [
-        { name: 'Carlos Medina', phone: '5219981234567', service: corte, hour: 9, min: 0, status: 'COMPLETED' },
-        { name: 'Jorge Ibarra', phone: '5219981234568', service: combo, hour: 9, min: 40, status: 'COMPLETED' },
-        { name: 'Ricardo Paz', phone: '5219981234569', service: barba, hour: 10, min: 30, status: 'COMPLETED' },
-        { name: 'Daniel Reyes', phone: '5219981234570', service: corte, hour: 11, min: 15, status: 'COMPLETED' },
-        { name: 'Emilio Vidal', phone: '5219981234571', service: combo, hour: 12, min: 0, status: 'CANCELLED' },
-        { name: 'Sergio Nava', phone: '5219981234572', service: corte, hour: 13, min: 0, status: 'COMPLETED' },
-        { name: 'Iván Delgado', phone: '5219981234573', service: barba, hour: 14, min: 30, status: 'PENDING' },
-        { name: 'Marco Vega', phone: '5219981234574', service: combo, hour: 16, min: 0, status: 'PENDING' },
+        { name: 'Carlos Medina', phone: '5219981234567', service: corte, barber: luis, customer: carlosC, hour: 9, min: 0, status: 'COMPLETED', pay: 'PAGADO' },
+        { name: 'Jorge Ibarra', phone: '5219981234568', service: combo, barber: miguel, customer: jorgeC, hour: 9, min: 40, status: 'COMPLETED', pay: 'PAGADO' },
+        { name: 'Ricardo Paz', phone: '5219981234569', service: barba, barber: ricardo, hour: 10, min: 30, status: 'COMPLETED', pay: 'PAGADO' },
+        { name: 'Daniel Reyes', phone: '5219981234570', service: corte, barber: ricardo, customer: danielC, hour: 11, min: 15, status: 'COMPLETED', pay: 'PARCIAL', paidCents: 8000 },
+        { name: 'Emilio Vidal', phone: '5219981234571', service: combo, hour: 12, min: 0, status: 'CANCELLED', pay: 'PAGADO' },
+        { name: 'Sergio Nava', phone: '5219981234572', service: corte, barber: luis, hour: 13, min: 0, status: 'COMPLETED', pay: 'NO_PAGADO', paidCents: 0 },
+        { name: 'Iván Delgado', phone: '5219981234573', service: barba, hour: 14, min: 30, status: 'PENDING', pay: 'PAGADO' },
+        { name: 'Marco Vega', phone: '5219981234574', service: combo, hour: 16, min: 0, status: 'PENDING', pay: 'PAGADO' },
     ]
     for (const b of todaysBookings) {
         const when = todayAt(b.hour, b.min)
+        const price = b.status === 'CANCELLED' ? null : b.service?.priceCents ?? null
+        const paid = b.status !== 'COMPLETED' ? 0 : (b.paidCents ?? price ?? 0)
         await prisma.booking.create({
             data: {
                 tenantId: sable.id,
                 customerName: b.name,
                 customerPhone: b.phone,
                 serviceId: b.service?.id,
+                barberId: b.barber?.id ?? null,
+                customerId: b.customer?.id ?? null,
                 day: when.toLocaleDateString('es-MX'),
                 time: when.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
                 scheduledAt: when,
                 status: b.status,
-                priceChargedCents: b.status === 'CANCELLED' ? null : b.service?.priceCents,
+                priceChargedCents: price,
+                paymentStatus: b.pay,
+                amountPaidCents: paid,
+                paymentMethod: b.status === 'COMPLETED' ? 'EFECTIVO' : null,
+                completedAt: b.status === 'COMPLETED' ? when : null,
             },
         })
     }
 
-    // Ventas de productos recientes
+    // Ventas de hoy: productos y servicios de mostrador (6 y 6, para ver bien la lista de Ventas)
     await prisma.productSale.deleteMany({ where: { tenantId: sable.id, createdAt: { gte: daysAgo(1) } } })
+    await prisma.serviceSale.deleteMany({ where: { tenantId: sable.id, createdAt: { gte: daysAgo(1) } } })
     await prisma.productSale.createMany({
         data: [
-            { tenantId: sable.id, productId: cera.id, productName: cera.name, priceCents: cera.priceCents, createdAt: hoursAgo(0.67) },
-            { tenantId: sable.id, productId: shampoo.id, productName: shampoo.name, priceCents: shampoo.priceCents, createdAt: hoursAgo(2) },
-            { tenantId: sable.id, productId: aceite.id, productName: aceite.name, priceCents: aceite.priceCents, createdAt: hoursAgo(3) },
+            { tenantId: sable.id, productId: cera.id, productName: cera.name, priceCents: cera.priceCents, tipCents: 2000, amountPaidCents: cera.priceCents + 2000, barberId: luis.id, customerId: carlosC.id, paymentMethod: 'EFECTIVO', createdAt: hoursAgo(0.67) },
+            { tenantId: sable.id, productId: shampoo.id, productName: shampoo.name, priceCents: shampoo.priceCents, amountPaidCents: shampoo.priceCents, barberId: miguel.id, paymentMethod: 'TARJETA_DEBITO', createdAt: hoursAgo(2) },
+            { tenantId: sable.id, productId: aceite.id, productName: aceite.name, priceCents: aceite.priceCents, quantity: 2, amountPaidCents: aceite.priceCents * 2, barberId: ricardo.id, paymentMethod: 'EFECTIVO', createdAt: hoursAgo(3) },
+            { tenantId: sable.id, productId: peine.id, productName: peine.name, priceCents: peine.priceCents, amountPaidCents: peine.priceCents, paymentMethod: 'MERCADO_PAGO', createdAt: hoursAgo(4) },
+            { tenantId: sable.id, productId: talco.id, productName: talco.name, priceCents: talco.priceCents, paymentStatus: 'NO_PAGADO', amountPaidCents: 0, paymentMethod: 'EFECTIVO', createdAt: hoursAgo(5) },
+            { tenantId: sable.id, productId: locion.id, productName: locion.name, priceCents: locion.priceCents, amountPaidCents: locion.priceCents, paymentMethod: 'CODI', createdAt: hoursAgo(6) },
+        ],
+    })
+    await prisma.serviceSale.createMany({
+        data: [
+            { tenantId: sable.id, serviceId: corte.id, serviceName: corte.name, priceCents: corte.priceCents, discountCents: 3000, amountPaidCents: corte.priceCents - 3000, barberId: luis.id, customerId: carlosC.id, notes: 'Cliente frecuente, descuento por lealtad', paymentMethod: 'EFECTIVO', createdAt: hoursAgo(0.5) },
+            { tenantId: sable.id, serviceId: barba.id, serviceName: barba.name, priceCents: barba.priceCents, amountPaidCents: barba.priceCents, barberId: ricardo.id, paymentMethod: 'EFECTIVO', createdAt: hoursAgo(1.5) },
+            { tenantId: sable.id, serviceId: combo.id, serviceName: combo.name, priceCents: combo.priceCents, paymentStatus: 'PARCIAL', amountPaidCents: 12000, barberId: miguel.id, paymentMethod: 'TRANSFERENCIA', createdAt: hoursAgo(2.5) },
+            { tenantId: sable.id, serviceId: corte.id, serviceName: corte.name, priceCents: corte.priceCents, amountPaidCents: corte.priceCents, paymentMethod: 'TARJETA_CREDITO', createdAt: hoursAgo(3.5) },
+            { tenantId: sable.id, serviceId: barba.id, serviceName: barba.name, priceCents: barba.priceCents, tipCents: 5000, amountPaidCents: barba.priceCents + 5000, barberId: luis.id, paymentMethod: 'EFECTIVO', createdAt: hoursAgo(4.5) },
+            { tenantId: sable.id, serviceId: combo.id, serviceName: combo.name, priceCents: combo.priceCents, amountPaidCents: combo.priceCents, paymentMethod: 'PAYPAL', createdAt: hoursAgo(5.5) },
         ],
     })
 
@@ -164,6 +224,9 @@ const main = async () => {
                     scheduledAt: when,
                     status: 'COMPLETED',
                     priceChargedCents: svcPick?.priceCents,
+                    amountPaidCents: svcPick?.priceCents ?? 0,
+                    paymentMethod: 'EFECTIVO',
+                    completedAt: when,
                 },
             })
         }
@@ -174,6 +237,8 @@ const main = async () => {
                 productId: prodPick.id,
                 productName: prodPick.name,
                 priceCents: prodPick.priceCents,
+                amountPaidCents: prodPick.priceCents,
+                paymentMethod: 'EFECTIVO',
                 createdAt: daysAgo(d),
             },
         })
@@ -270,18 +335,18 @@ const main = async () => {
     // ---------------------------------------------------------------
     await prisma.expense.deleteMany({ where: { tenantId: sable.id, createdAt: { gte: daysAgo(30) } } })
     const testExpenses = [
-        { category: 'RENTA', description: 'Renta del local', amountCents: 800000, days: 28 },
-        { category: 'NOMINA', description: 'Pago quincenal staff', amountCents: 600000, days: 25 },
-        { category: 'INSUMOS', description: 'Navajas y cuchillas', amountCents: 45000, days: 21 },
-        { category: 'INSUMOS', description: 'Shampoo y toallas', amountCents: 32000, days: 14 },
-        { category: 'SERVICIOS', description: 'Luz y agua', amountCents: 95000, days: 12 },
-        { category: 'SERVICIOS', description: 'Internet', amountCents: 60000, days: 12 },
-        { category: 'NOMINA', description: 'Pago quincenal staff', amountCents: 600000, days: 10 },
+        { category: 'RENTA', description: 'Renta del local', amountCents: 800000, days: 28, vendor: 'Inmobiliaria del Valle', isRecurring: true, paidByName: 'Arman Grijalva' },
+        { category: 'NOMINA', description: 'Sueldo quincenal — Miguel Ángel Soto', amountCents: 700000, days: 25, isRecurring: true, paidByName: 'Arman Grijalva' },
+        { category: 'INSUMOS', description: 'Navajas y cuchillas', amountCents: 45000, days: 21, vendor: 'Distribuidora Barber Pro' },
+        { category: 'INSUMOS', description: `Compra: ${shampoo.name}`, amountCents: 130000, days: 14, product: shampoo, quantity: 6, vendor: 'Distribuidora Barber Pro', receiptNumber: 'F-4521' },
+        { category: 'SERVICIOS', description: 'Luz y agua', amountCents: 95000, days: 12, vendor: 'CFE', isRecurring: true },
+        { category: 'SERVICIOS', description: 'Internet', amountCents: 60000, days: 12, vendor: 'Telmex', isRecurring: true },
+        { category: 'NOMINA', description: 'Sueldo quincenal — Ricardo Núñez', amountCents: 350000, days: 10, isRecurring: true, paidByName: 'Arman Grijalva' },
         { category: 'OTRO', description: 'Mantenimiento sillón', amountCents: 25000, days: 8 },
-        { category: 'INSUMOS', description: 'Cera y productos de venta', amountCents: 54000, days: 6 },
+        { category: 'INSUMOS', description: `Compra: ${cera.name}`, amountCents: 140000, days: 6, product: cera, quantity: 10, vendor: 'Distribuidora Barber Pro', receiptNumber: 'F-4602' },
         { category: 'OTRO', description: 'Publicidad local', amountCents: 30000, days: 4 },
         { category: 'INSUMOS', description: 'Toallas desechables', amountCents: 18000, days: 2 },
-        { category: 'SERVICIOS', description: 'Limpieza', amountCents: 40000, days: 1 },
+        { category: 'SERVICIOS', description: 'Limpieza', amountCents: 40000, days: 1, paidByName: 'Diego (Gerente)' },
     ]
     for (const e of testExpenses) {
         await prisma.expense.create({
@@ -290,14 +355,91 @@ const main = async () => {
                 category: e.category,
                 description: e.description,
                 amountCents: e.amountCents,
+                productId: e.product?.id ?? null,
+                quantity: e.quantity ?? null,
+                vendor: e.vendor ?? null,
+                receiptNumber: e.receiptNumber ?? null,
+                isRecurring: e.isRecurring ?? false,
+                paidByName: e.paidByName ?? null,
                 createdAt: daysAgo(e.days),
             },
         })
     }
 
+    // ---------------------------------------------------------------
+    // Turnos de caja: tipos + un turno abierto ahorita + 2 cerrados de ejemplo
+    // ---------------------------------------------------------------
+    const shiftTypeDefs = ['Mañana', 'Tarde', 'Noche', 'Día completo']
+    const shiftTypesByName = {}
+    for (const name of shiftTypeDefs) {
+        shiftTypesByName[name] = await prisma.shiftType.upsert({
+            where: { tenantId_name: { tenantId: sable.id, name } },
+            update: {},
+            create: { tenantId: sable.id, name },
+        })
+    }
+
+    await prisma.cashShift.deleteMany({ where: { tenantId: sable.id, status: 'ABIERTO' } })
+    await prisma.cashShift.create({
+        data: {
+            tenantId: sable.id,
+            shiftTypeId: shiftTypesByName['Día completo'].id,
+            status: 'ABIERTO',
+            openedByName: 'Arman Grijalva',
+            openingCashCents: 50000,
+            startedAt: todayAt(9, 0),
+        },
+    })
+
+    const closedShiftDefs = [
+        { name: 'Mañana', days: 1, startHour: 9, endHour: 15, opening: 50000, closing: 210000, cash: 160000, expense: 30000, sales: 9 },
+        { name: 'Tarde', days: 2, startHour: 15, endHour: 20, opening: 40000, closing: 195000, cash: 155000, expense: 0, sales: 7 },
+    ]
+    for (const s of closedShiftDefs) {
+        const start = new Date(daysAgo(s.days))
+        start.setHours(s.startHour, 0, 0, 0)
+        const end = new Date(daysAgo(s.days))
+        end.setHours(s.endHour, 0, 0, 0)
+        const expected = s.opening + s.cash - s.expense
+        await prisma.cashShift.create({
+            data: {
+                tenantId: sable.id,
+                shiftTypeId: shiftTypesByName[s.name].id,
+                status: 'CERRADO',
+                openedByName: 'Arman Grijalva',
+                closedByName: 'Arman Grijalva',
+                openingCashCents: s.opening,
+                closingCashCents: s.closing,
+                cashRevenueCents: s.cash,
+                cashExpenseCents: s.expense,
+                totalRevenueCents: s.cash,
+                totalExpenseCents: s.expense,
+                expectedCashCents: expected,
+                cashDifferenceCents: s.closing - expected,
+                salesCount: s.sales,
+                startedAt: start,
+                endedAt: end,
+            },
+        })
+    }
+
+    // ---------------------------------------------------------------
+    // Admin supremo (dueño de la plataforma) — login separado del de las barberías
+    // ---------------------------------------------------------------
+    await prisma.superAdmin.upsert({
+        where: { username: 'axel' },
+        update: {},
+        create: {
+            username: 'axel',
+            name: 'Axel',
+            passwordHash: hashPassword('axel123'),
+        },
+    })
+
     console.log(`✅ Tenant principal: ${sable.name} (${sable.slug}) — ${todaysBookings.length} citas de hoy sembradas`)
     console.log(`✅ ${staffUsers.length} usuarios de prueba y ${testExpenses.length} gastos sembrados`)
     console.log(`✅ ${demoTenants.length} barberías de ejemplo sembradas para el panel de admin`)
+    console.log(`✅ Admin supremo sembrado — usuario: axel / contraseña: axel123`)
 }
 
 main()

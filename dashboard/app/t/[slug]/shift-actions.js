@@ -1,0 +1,128 @@
+"use server";
+
+import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { requirePermission, getSessionUser } from "@/lib/auth";
+
+async function tenantIdFromSlug(slug) {
+    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
+    if (!tenant) throw new Error("Barbería no encontrada");
+    return tenant.id;
+}
+
+const plainShift = (s) => ({
+    ...s,
+    startedAt: s.startedAt.toISOString(),
+    endedAt: s.endedAt?.toISOString() ?? null,
+    shiftType: s.shiftType ? { id: s.shiftType.id, name: s.shiftType.name } : null,
+});
+
+export async function getOpenShift(slug) {
+    const user = await getSessionUser();
+    if (!user) throw new Error("Debes iniciar sesión.");
+    const tenantId = await tenantIdFromSlug(slug);
+    const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" }, include: { shiftType: true } });
+    return shift ? plainShift(shift) : null;
+}
+
+export async function getShiftHistory(slug) {
+    await requirePermission("FINANZAS", "view");
+    const tenantId = await tenantIdFromSlug(slug);
+    const shifts = await prisma.cashShift.findMany({
+        where: { tenantId, status: "CERRADO" },
+        include: { shiftType: true },
+        orderBy: { startedAt: "desc" },
+        take: 20,
+    });
+    return shifts.map(plainShift);
+}
+
+export async function openShift(slug, { shiftTypeId, openingCashCents }) {
+    const user = await requirePermission("FINANZAS", "add");
+    const tenantId = await tenantIdFromSlug(slug);
+
+    const existing = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" } });
+    if (existing) throw new Error("Ya hay un turno abierto.");
+
+    await prisma.cashShift.create({
+        data: {
+            tenantId,
+            shiftTypeId: shiftTypeId || null,
+            openedByName: user.name,
+            openingCashCents: Math.max(0, Math.round(openingCashCents) || 0),
+        },
+    });
+    revalidatePath(`/t/${slug}`);
+}
+
+export async function closeShift(slug, { closingCashCents, notes }) {
+    const user = await requirePermission("FINANZAS", "add");
+    const tenantId = await tenantIdFromSlug(slug);
+
+    const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" } });
+    if (!shift) throw new Error("No hay ningún turno abierto.");
+
+    const endedAt = new Date();
+    const range = { gte: shift.startedAt, lte: endedAt };
+
+    const [completedBookings, productSales, serviceSales, expenses] = await Promise.all([
+        prisma.booking.findMany({ where: { tenantId, status: "COMPLETED", completedAt: range } }),
+        prisma.productSale.findMany({ where: { tenantId, createdAt: range } }),
+        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range } }),
+        prisma.expense.findMany({ where: { tenantId, createdAt: range } }),
+    ]);
+
+    const revenueRows = [...completedBookings, ...productSales, ...serviceSales];
+    const totalRevenueCents = revenueRows.reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
+    const cashRevenueCents = revenueRows
+        .filter((r) => r.paymentMethod === "EFECTIVO")
+        .reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
+    const totalExpenseCents = expenses.reduce((sum, e) => sum + e.amountCents, 0);
+    const cashExpenseCents = expenses.filter((e) => e.paymentMethod === "EFECTIVO").reduce((sum, e) => sum + e.amountCents, 0);
+
+    const expectedCashCents = shift.openingCashCents + cashRevenueCents - cashExpenseCents;
+    const closingCash = Math.max(0, Math.round(closingCashCents) || 0);
+
+    await prisma.cashShift.update({
+        where: { id: shift.id },
+        data: {
+            status: "CERRADO",
+            closedByName: user.name,
+            closingCashCents: closingCash,
+            cashRevenueCents,
+            cashExpenseCents,
+            totalRevenueCents,
+            totalExpenseCents,
+            expectedCashCents,
+            cashDifferenceCents: closingCash - expectedCashCents,
+            salesCount: revenueRows.length,
+            notes: notes?.trim() || null,
+            endedAt,
+        },
+    });
+    revalidatePath(`/t/${slug}`);
+}
+
+// ------------------------------------------------------------- Tipos de turno
+export async function createShiftType(slug, { name }) {
+    await requirePermission("SEGURIDAD", "add");
+    if (!name?.trim()) throw new Error("El nombre del turno es obligatorio");
+    const tenantId = await tenantIdFromSlug(slug);
+
+    await prisma.shiftType.create({ data: { tenantId, name: name.trim() } });
+    revalidatePath(`/t/${slug}`);
+}
+
+export async function updateShiftType(shiftTypeId, slug, { name, active }) {
+    await requirePermission("SEGURIDAD", "edit");
+    if (!name?.trim()) throw new Error("El nombre del turno es obligatorio");
+
+    await prisma.shiftType.update({ where: { id: shiftTypeId }, data: { name: name.trim(), active: !!active } });
+    revalidatePath(`/t/${slug}`);
+}
+
+export async function deleteShiftType(shiftTypeId, slug) {
+    await requirePermission("SEGURIDAD", "delete");
+    await prisma.shiftType.delete({ where: { id: shiftTypeId } });
+    revalidatePath(`/t/${slug}`);
+}

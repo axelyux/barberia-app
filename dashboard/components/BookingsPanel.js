@@ -5,7 +5,8 @@ import Badge from "@/components/Badge";
 import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
-import { contrastText, BOOKING_STATUS_META } from "@/lib/format";
+import { money, contrastText, BOOKING_STATUS_META } from "@/lib/format";
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META } from "@/lib/payments";
 import {
     createBooking,
     updateBooking,
@@ -15,7 +16,7 @@ import {
     getBookingsForDate,
 } from "@/app/t/[slug]/actions";
 
-const emptyForm = { customerName: "", customerPhone: "", serviceId: "", hour: "9", minute: "0" };
+const emptyForm = { customerName: "", customerPhone: "", serviceId: "", barberId: "", hour: "9", minute: "0" };
 
 const toISODate = (d) => {
     const x = new Date(d);
@@ -36,7 +37,7 @@ const dateLabel = (dateISO) => {
     return cap;
 };
 
-function CreateBookingForm({ services, brandStyle, isPending, error, onSave, onCancel }) {
+function CreateBookingForm({ services, barbers, brandStyle, isPending, error, onSave, onCancel }) {
     const [form, setForm] = useState(emptyForm);
 
     return (
@@ -62,6 +63,22 @@ function CreateBookingForm({ services, brandStyle, isPending, error, onSave, onC
                         ))}
                     </select>
                 </Field>
+                {barbers.length > 0 ? (
+                    <Field label="Barbero">
+                        <select
+                            value={form.barberId}
+                            onChange={(e) => setForm((f) => ({ ...f, barberId: e.target.value }))}
+                            className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                        >
+                            <option value="">Sin asignar</option>
+                            {barbers.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                    {b.name}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2">
                     <Field label="Hora">
                         <NumberInput value={form.hour} onChange={(e) => setForm((f) => ({ ...f, hour: e.target.value }))} min="0" max="23" />
@@ -89,7 +106,7 @@ function CreateBookingForm({ services, brandStyle, isPending, error, onSave, onC
     );
 }
 
-export default function BookingsPanel({ initialBookings, services, slug, brandColor, perms }) {
+export default function BookingsPanel({ initialBookings, services, barbers, slug, brandColor, perms }) {
     const [dateISO, setDateISO] = useState(toISODate(new Date()));
     const [bookings, setBookings] = useState(initialBookings);
     const [createOpen, setCreateOpen] = useState(false);
@@ -97,6 +114,10 @@ export default function BookingsPanel({ initialBookings, services, slug, brandCo
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [serviceId, setServiceId] = useState("");
+    const [barberId, setBarberId] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("EFECTIVO");
+    const [paymentStatus, setPaymentStatus] = useState("PAGADO");
+    const [amountPaid, setAmountPaid] = useState("0");
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
@@ -116,6 +137,10 @@ export default function BookingsPanel({ initialBookings, services, slug, brandCo
         setName(b.customerName ?? "");
         setPhone(b.customerPhone ?? "");
         setServiceId(b.serviceId ?? "");
+        setBarberId(b.barberId ?? "");
+        setPaymentMethod("EFECTIVO");
+        setPaymentStatus("PAGADO");
+        setAmountPaid(String((b.priceChargedCents ?? 0) / 100));
         setSelectedId(b.id);
     };
 
@@ -165,10 +190,15 @@ export default function BookingsPanel({ initialBookings, services, slug, brandCo
                             <span>
                                 <span className="block text-sm font-bold text-zinc-50">{b.customerName ?? "Cliente"}</span>
                                 <span className="block text-xs text-zinc-400">
-                                    {b.service?.name ?? "Servicio"} · {b.durationMin} min
+                                    {b.service?.name ?? "Servicio"} · {b.durationMin} min{b.barber ? ` · ${b.barber.name}` : ""}
                                 </span>
                             </span>
-                            <Badge tone={meta.tone}>{meta.label}</Badge>
+                            <span className="flex flex-col items-end gap-1">
+                                <Badge tone={meta.tone}>{meta.label}</Badge>
+                                {b.status === "COMPLETED" && b.paymentStatus !== "PAGADO" ? (
+                                    <Badge tone={PAYMENT_STATUS_META[b.paymentStatus].tone}>{PAYMENT_STATUS_META[b.paymentStatus].label}</Badge>
+                                ) : null}
+                            </span>
                         </button>
                     );
                 })}
@@ -180,6 +210,7 @@ export default function BookingsPanel({ initialBookings, services, slug, brandCo
                     {createOpen ? (
                         <CreateBookingForm
                             services={services}
+                            barbers={barbers.filter((b) => b.active)}
                             brandStyle={brandStyle}
                             isPending={isPending}
                             error={error}
@@ -215,6 +246,23 @@ export default function BookingsPanel({ initialBookings, services, slug, brandCo
                                     ))}
                                 </select>
                             </Field>
+                            {barbers.length > 0 ? (
+                                <Field label="Barbero">
+                                    <select
+                                        disabled={!perms.canEdit}
+                                        value={barberId}
+                                        onChange={(e) => setBarberId(e.target.value)}
+                                        className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                    >
+                                        <option value="">Sin asignar</option>
+                                        {barbers.map((b) => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </Field>
+                            ) : null}
                         </div>
                         <div className="my-3 flex items-center justify-between text-[13.5px]">
                             <span className="text-zinc-400">Estado actual</span>
@@ -229,14 +277,69 @@ export default function BookingsPanel({ initialBookings, services, slug, brandCo
                                     <SheetButton
                                         variant="ghost"
                                         disabled={isPending}
-                                        onClick={() => run(() => updateBooking(selected.id, slug, { customerName: name, customerPhone: phone, serviceId: serviceId || null }))}
+                                        onClick={() =>
+                                            run(() =>
+                                                updateBooking(selected.id, slug, {
+                                                    customerName: name,
+                                                    customerPhone: phone,
+                                                    serviceId: serviceId || null,
+                                                    barberId: barberId || null,
+                                                })
+                                            )
+                                        }
                                     >
                                         Guardar cambios
                                     </SheetButton>
                                     {selected.status !== "COMPLETED" ? (
-                                        <SheetButton variant="brand" style={brandStyle} disabled={isPending} onClick={() => run(() => markBookingCompleted(selected.id, slug))}>
-                                            Marcar completado
-                                        </SheetButton>
+                                        <>
+                                            <Field label="Método de pago al completar">
+                                                <select
+                                                    value={paymentMethod}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                                >
+                                                    {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
+                                                        <option key={key} value={key}>
+                                                            {label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </Field>
+                                            <Field label="Estatus de pago">
+                                                <select
+                                                    value={paymentStatus}
+                                                    onChange={(e) => setPaymentStatus(e.target.value)}
+                                                    className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                                >
+                                                    {Object.entries(PAYMENT_STATUS_META).map(([key, meta]) => (
+                                                        <option key={key} value={key}>
+                                                            {meta.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </Field>
+                                            {paymentStatus === "PARCIAL" ? (
+                                                <Field label={`Monto pagado (de ${money(selected.priceChargedCents ?? 0)})`}>
+                                                    <NumberInput value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} min="0" />
+                                                </Field>
+                                            ) : null}
+                                            <SheetButton
+                                                variant="brand"
+                                                style={brandStyle}
+                                                disabled={isPending}
+                                                onClick={() =>
+                                                    run(() =>
+                                                        markBookingCompleted(selected.id, slug, {
+                                                            paymentMethod,
+                                                            paymentStatus,
+                                                            amountPaidCents: Math.round(parseFloat(amountPaid || "0") * 100),
+                                                        })
+                                                    )
+                                                }
+                                            >
+                                                Marcar completado
+                                            </SheetButton>
+                                        </>
                                     ) : null}
                                     {selected.status !== "CANCELLED" ? (
                                         <SheetButton variant="danger" disabled={isPending} onClick={() => run(() => cancelBooking(selected.id, slug))}>

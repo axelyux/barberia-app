@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import { Field, TextInput, NumberInput, ColorPicker, ImagePicker } from "@/components/FormField";
 import { money, shortDate, TENANT_STATUS_META } from "@/lib/format";
 import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant } from "@/app/admin/actions";
+import { logoutAdmin } from "@/app/admin/login/actions";
 
 const FILTERS = [
     { key: "all", label: "Todas" },
@@ -128,12 +129,13 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
     );
 }
 
-export default function AdminBoard({ tenants, monthlyRevenueCents }) {
+export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) {
     const [filter, setFilter] = useState("all");
     const [selectedId, setSelectedId] = useState(null);
     const [createOpen, setCreateOpen] = useState(false);
     const [createForm, setCreateForm] = useState(emptyForm);
     const [error, setError] = useState("");
+    const [newCredentials, setNewCredentials] = useState(null);
     const [isPending, startTransition] = useTransition();
 
     const counts = useMemo(() => {
@@ -149,15 +151,16 @@ export default function AdminBoard({ tenants, monthlyRevenueCents }) {
 
     const selected = tenants.find((t) => t.id === selectedId) ?? null;
 
-    const runAction = (fn, { closeSheet = true } = {}) => {
+    const runAction = (fn, { closeSheet = true, onSuccess } = {}) => {
         setError("");
         startTransition(async () => {
             try {
-                await fn();
+                const result = await fn();
                 if (closeSheet) {
                     setSelectedId(null);
                     setCreateOpen(false);
                 }
+                onSuccess?.(result);
             } catch (err) {
                 setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
             }
@@ -166,9 +169,17 @@ export default function AdminBoard({ tenants, monthlyRevenueCents }) {
 
     return (
         <div className="mx-auto flex max-w-[430px] flex-col gap-5 px-4 pb-16 pt-6">
-            <div>
-                <p className="text-xs text-zinc-500">Hola, Armando</p>
-                <h1 className="text-[19px] font-bold text-zinc-50">Panel Admin</h1>
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="text-xs text-zinc-500">Hola, {adminName}</p>
+                    <h1 className="text-[19px] font-bold text-zinc-50">Panel Admin</h1>
+                </div>
+                <button
+                    onClick={() => logoutAdmin()}
+                    className="flex min-h-9 items-center justify-center rounded-md border border-zinc-800 px-3 text-xs font-semibold text-zinc-400"
+                >
+                    Salir
+                </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -316,14 +327,16 @@ export default function AdminBoard({ tenants, monthlyRevenueCents }) {
                         variant="primary"
                         disabled={isPending}
                         onClick={() =>
-                            runAction(() =>
-                                createTenant({
-                                    name: createForm.name,
-                                    ownerName: createForm.ownerName,
-                                    planPriceCents: Math.round(parseFloat(createForm.planPrice || "0") * 100),
-                                    brandColor: createForm.brandColor,
-                                    logoUrl: createForm.logoUrl,
-                                })
+                            runAction(
+                                () =>
+                                    createTenant({
+                                        name: createForm.name,
+                                        ownerName: createForm.ownerName,
+                                        planPriceCents: Math.round(parseFloat(createForm.planPrice || "0") * 100),
+                                        brandColor: createForm.brandColor,
+                                        logoUrl: createForm.logoUrl,
+                                    }),
+                                { onSuccess: (result) => result && setNewCredentials(result) }
                             )
                         }
                     >
@@ -333,6 +346,30 @@ export default function AdminBoard({ tenants, monthlyRevenueCents }) {
                         Cancelar
                     </SheetButton>
                 </div>
+            </BottomSheet>
+
+            {/* -------- Sheet: credenciales del usuario inicial (solo se muestran una vez) -------- */}
+            <BottomSheet
+                open={!!newCredentials}
+                onClose={() => setNewCredentials(null)}
+                title="Barbería creada"
+                subtitle="Guarda esta contraseña, no se vuelve a mostrar"
+            >
+                {newCredentials ? (
+                    <div className="flex flex-col gap-3">
+                        <p className="text-sm text-zinc-400">
+                            Comparte estos datos con el dueño para su primer inicio de sesión en{" "}
+                            <span className="font-semibold text-zinc-200">/t/{newCredentials.slug}</span>:
+                        </p>
+                        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5 font-mono text-sm text-zinc-100">
+                            <p>Usuario: {newCredentials.username}</p>
+                            <p>Contraseña: {newCredentials.tempPassword}</p>
+                        </div>
+                        <SheetButton variant="primary" onClick={() => setNewCredentials(null)}>
+                            Ya la guardé
+                        </SheetButton>
+                    </div>
+                ) : null}
             </BottomSheet>
         </div>
     );

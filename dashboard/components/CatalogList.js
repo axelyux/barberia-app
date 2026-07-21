@@ -6,13 +6,19 @@ import SheetButton from "@/components/SheetButton";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, contrastText } from "@/lib/format";
 
-const emptyForm = { name: "", price: "", extra: "", active: true };
+const emptyForm = { name: "", price: "", extra: "", extra2: "", active: true };
 
-function itemToForm(item, extraKey) {
-    return { name: item.name, price: String(item.priceCents / 100), extra: String(item[extraKey]), active: item.active };
+function itemToForm(item, extraKey, extra2Key) {
+    return {
+        name: item.name,
+        price: String(item.priceCents / 100),
+        extra: String(item[extraKey]),
+        extra2: extra2Key ? String(item[extra2Key]) : "",
+        active: item.active,
+    };
 }
 
-function CreateItemForm({ title, extra, brandStyle, isPending, error, onSave, onCancel }) {
+function CreateItemForm({ title, extra, extra2, brandStyle, isPending, error, onSave, onCancel }) {
     const [form, setForm] = useState(emptyForm);
 
     return (
@@ -27,6 +33,11 @@ function CreateItemForm({ title, extra, brandStyle, isPending, error, onSave, on
                 <Field label={extra.label}>
                     <NumberInput value={form.extra} onChange={(e) => setForm((f) => ({ ...f, extra: e.target.value }))} min="0" />
                 </Field>
+                {extra2 ? (
+                    <Field label={extra2.label}>
+                        <NumberInput value={form.extra2} onChange={(e) => setForm((f) => ({ ...f, extra2: e.target.value }))} min="0" />
+                    </Field>
+                ) : null}
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
             <div className="mt-4 flex flex-col gap-2">
@@ -39,6 +50,7 @@ function CreateItemForm({ title, extra, brandStyle, isPending, error, onSave, on
                             name: form.name,
                             priceCents: Math.round(parseFloat(form.price || "0") * 100),
                             [extra.key]: parseFloat(form.extra || "0"),
+                            ...(extra2 ? { [extra2.key]: parseFloat(form.extra2 || "0") } : {}),
                         })
                     }
                 >
@@ -52,8 +64,8 @@ function CreateItemForm({ title, extra, brandStyle, isPending, error, onSave, on
     );
 }
 
-function EditItemForm({ item, extra, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
-    const [form, setForm] = useState(() => itemToForm(item, extra.key));
+function EditItemForm({ item, extra, extra2, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
+    const [form, setForm] = useState(() => itemToForm(item, extra.key, extra2?.key));
 
     return (
         <>
@@ -67,6 +79,11 @@ function EditItemForm({ item, extra, brandStyle, isPending, error, canEdit, canD
                 <Field label={extra.label}>
                     <NumberInput disabled={!canEdit} value={form.extra} onChange={(e) => setForm((f) => ({ ...f, extra: e.target.value }))} min="0" />
                 </Field>
+                {extra2 ? (
+                    <Field label={extra2.label}>
+                        <NumberInput disabled={!canEdit} value={form.extra2} onChange={(e) => setForm((f) => ({ ...f, extra2: e.target.value }))} min="0" />
+                    </Field>
+                ) : null}
                 <label className="flex items-center gap-2 text-sm text-zinc-300">
                     <input
                         type="checkbox"
@@ -91,6 +108,7 @@ function EditItemForm({ item, extra, brandStyle, isPending, error, canEdit, canD
                                     name: form.name,
                                     priceCents: Math.round(parseFloat(form.price || "0") * 100),
                                     [extra.key]: parseFloat(form.extra || "0"),
+                                    ...(extra2 ? { [extra2.key]: parseFloat(form.extra2 || "0") } : {}),
                                     active: form.active,
                                 })
                             }
@@ -109,7 +127,7 @@ function EditItemForm({ item, extra, brandStyle, isPending, error, canEdit, canD
     );
 }
 
-export default function CatalogList({ title, emptyLabel, items, slug, brandColor, extra, perms, onCreate, onUpdate, onDelete }) {
+export default function CatalogList({ title, emptyLabel, items, slug, brandColor, extra, extra2, lowStockCheck, perms, onCreate, onUpdate, onDelete }) {
     const [createOpen, setCreateOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
@@ -161,6 +179,11 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                         <div className="min-w-0">
                             <p className={`truncate text-sm font-bold ${item.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>
                                 {item.name}
+                                {lowStockCheck?.(item) ? (
+                                    <span className="ml-1.5 rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-400">
+                                        stock bajo
+                                    </span>
+                                ) : null}
                             </p>
                             <p className="text-xs text-zinc-400">
                                 {item[extra.key]} {extra.suffix}
@@ -179,6 +202,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                         <CreateItemForm
                             title={title.toLowerCase()}
                             extra={extra}
+                            extra2={extra2}
                             brandStyle={brandStyle}
                             isPending={isPending}
                             error={error}
@@ -195,6 +219,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                         key={editing.id}
                         item={editing}
                         extra={extra}
+                        extra2={extra2}
                         brandStyle={brandStyle}
                         isPending={isPending}
                         error={error}
