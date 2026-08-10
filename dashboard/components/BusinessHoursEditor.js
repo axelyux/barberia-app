@@ -21,6 +21,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
             : { weekday, isClosed: weekday === 0, openMin: 540, closeMin: 1200 };
     });
     const [days, setDays] = useState(initial);
+    const [minNotice, setMinNotice] = useState(String(tenant.bookingMinNoticeMin ?? 30));
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
@@ -33,7 +34,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
         setSaved(false);
         startTransition(async () => {
             try {
-                await updateBusinessHours(tenant.slug, days);
+                await updateBusinessHours(tenant.slug, days, parseInt(minNotice, 10) || 0);
                 setSaved(true);
             } catch (err) {
                 setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
@@ -87,6 +88,28 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                             )}
                         </div>
                     ))}
+                </div>
+
+                <div className="mt-3.5 border-t border-zinc-800 pt-3.5">
+                    <label className="flex flex-col gap-1.5">
+                        <span className="text-[12.5px] font-semibold text-zinc-300">Anticipación mínima para agendar</span>
+                        <span className="text-xs text-zinc-500">
+                            El bot no aceptará citas con menos de estos minutos de anticipación (evita que agenden “para ya mismo”).
+                        </span>
+                        <div className="mt-1 flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                max="1440"
+                                step="15"
+                                disabled={!perms.canEdit}
+                                value={minNotice}
+                                onChange={(e) => setMinNotice(e.target.value)}
+                                className="h-9 w-24 rounded-md border border-zinc-700 bg-zinc-800/60 px-2.5 text-[12.5px] text-zinc-50"
+                            />
+                            <span className="text-[12.5px] text-zinc-400">minutos</span>
+                        </div>
+                    </label>
                 </div>
 
                 {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}

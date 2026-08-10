@@ -97,6 +97,13 @@ model Tenant {
   name           String
   ownerName      String?
   whatsappNumber String?      @unique
+  // --- Conexión vía API oficial de Meta (Cloud API), independiente de Baileys ---
+  metaPhoneNumberId String? @unique // Phone Number ID que Meta asigna al número de esta barbería
+  metaAccessToken   String? // token permanente (System User) para mandar mensajes desde ese número
+  metaPort          Int?    @unique // puerto local donde corre el proceso Meta de esta barbería
+  // Minutos de anticipación mínima para aceptar una cita por WhatsApp: evita que
+  // alguien agende "ya mismo" cuando la barbería está por cerrar o sin margen.
+  bookingMinNoticeMin Int @default(30)
   status         TenantStatus @default(ACTIVE)
   planPriceCents Int          @default(20000)
   nextDueDate    DateTime?

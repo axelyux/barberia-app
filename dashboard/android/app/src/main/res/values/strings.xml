@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Barber SaaS</string>
-    <string name="title_activity_main">Barber SaaS</string>
+    <string name="app_name">MiBarber</string>
+    <string name="title_activity_main">MiBarber</string>
     <string name="package_name">com.barbersaas.app</string>
     <string name="custom_url_scheme">com.barbersaas.app</string>
 </resources>

@@ -4,5 +4,7 @@ db.json
 *.qr.png
 *.log
 .env
+.env.meta-test
+db.meta-test.json
 /prisma/dev.db
 /prisma/dev.db-journal

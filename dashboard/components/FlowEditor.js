@@ -57,6 +57,13 @@ export default function FlowEditor({ initialMessages, brandColor, slug, perms })
                 Así le contesta tu bot a los clientes en cada paso. Edita directo sobre la burbuja.
             </p>
 
+            <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5">
+                <p className="text-xs text-amber-200/90">
+                    <b>No enumeres opciones con números.</b> El menú, los servicios y los horarios se envían como
+                    botones y listas que el cliente toca — si escribes “responde 1, 2 o 3” lo vas a confundir.
+                </p>
+            </div>
+
             <div className="flex flex-col gap-3">
                 {STEPS.map((step) => (
                     <div key={step.key} className="rounded-md border border-zinc-800 bg-zinc-900 p-2.5">

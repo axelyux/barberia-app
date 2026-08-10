@@ -1,3 +1,11 @@
+// ⚠️ CÓDIGO HEREDADO (Baileys, API no oficial de WhatsApp).
+// El bot vigente es whatsapp-meta-bot.js + webhook-router.js, que usan la API oficial
+// de Meta y ya incluyen mejoras que este archivo NO tiene (validación de citas en el
+// pasado, anticipación mínima, menús con botones y listas).
+// Este archivo se conserva solo como respaldo mientras se verifica el negocio ante Meta
+// y se da de alta el número real; una vez que eso funcione, se elimina junto con la
+// dependencia @builderbot/provider-baileys. No agregar mejoras aquí.
+//
 // Fija la zona horaria real de la barbería sin importar en qué servidor corra el proceso
 // (si no, "hoy" y el horario de atención se calculan mal cuando el servidor está en UTC).
 process.env.TZ = 'America/Mexico_City'
@@ -7,6 +15,7 @@ import { BaileysProvider } from '@builderbot/provider-baileys'
 import { JsonFileDB } from '@builderbot/database-json'
 import { fetchLatestBaileysVersion } from 'baileys'
 import qrcodeTerminal from 'qrcode-terminal'
+import { pathToFileURL } from 'url'
 import {
     getFlowMessage,
     getActiveServices,
@@ -41,7 +50,7 @@ const buildServicesText = async () => {
 /**
  * Flujo de contacto: entrega el número de administración configurado por el tenant.
  */
-const flowContacto = addKeyword(['3', 'contacto', 'ayuda', 'asesor'])
+export const flowContacto = addKeyword(['3', 'contacto', 'ayuda', 'asesor'])
     .addAnswer(null, null, async (ctx, { flowDynamic }) => {
         const text = await getFlowMessage('CONTACT', 'Contacta a administración.')
         await flowDynamic(text)
@@ -50,7 +59,7 @@ const flowContacto = addKeyword(['3', 'contacto', 'ayuda', 'asesor'])
 /**
  * Flujo de servicios: arma la lista de servicios, precios y promociones del tenant.
  */
-const flowServicios = addKeyword(['2', 'servicios', 'precios'])
+export const flowServicios = addKeyword(['2', 'servicios', 'precios'])
     .addAnswer(null, null, async (ctx, { flowDynamic }) => {
         await flowDynamic(await buildServicesText())
     })
@@ -60,7 +69,7 @@ const flowServicios = addKeyword(['2', 'servicios', 'precios'])
  * con su precio real de la base de datos (coincidencia de texto, no IA). Si no reconoce
  * ningún nombre, cae de vuelta a la lista completa.
  */
-const flowPrecioEspecifico = addKeyword([
+export const flowPrecioEspecifico = addKeyword([
     'cuanto cuesta', 'cuánto cuesta', 'cuanto vale', 'cuánto vale', 'costo de', 'precio de', 'que precio tiene', 'qué precio tiene',
 ])
     .addAnswer(null, null, async (ctx, { flowDynamic }) => {
@@ -78,7 +87,7 @@ const flowPrecioEspecifico = addKeyword([
  * otra cita ya agendada, respetando el horario real de esa barbería, y sugiriendo horas
  * libres cuando hay un choque o la hora pedida está fuera de horario.
  */
-const flowCitas = addKeyword(['1', 'agendar', 'cita', 'reservar'])
+export const flowCitas = addKeyword(['1', 'agendar', 'cita', 'reservar'])
     .addAnswer(null, null, async (ctx, { flowDynamic, endFlow }) => {
         const { open, hoursText } = await checkOpenNow()
         if (!open) {
@@ -201,7 +210,7 @@ const flowCitas = addKeyword(['1', 'agendar', 'cita', 'reservar'])
  * Flujo de bienvenida: responde a saludos con el menú, o con el aviso de "cerrado" si
  * están fuera del horario configurado por la barbería.
  */
-const flowBienvenida = addKeyword(EVENTS.WELCOME)
+export const flowBienvenida = addKeyword(EVENTS.WELCOME)
     .addAnswer(null, null, async (ctx, { flowDynamic }) => {
         const { open, hoursText } = await checkOpenNow()
         if (!open) {
@@ -314,4 +323,8 @@ process.on('uncaughtException', (err) => {
     console.error('❌ Error no controlado (uncaughtException):', err)
 })
 
-main()
+// Guard para que otros scripts (ej. test-meta-bot.js) puedan importar los flujos
+// de arriba sin levantar también este bot de Baileys por accidente.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main()
+}

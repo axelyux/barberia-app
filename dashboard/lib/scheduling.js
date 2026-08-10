@@ -59,5 +59,30 @@ export function findNearestAvailableSlots(candidateStart, durationMin, existingB
     return found.sort((a, b) => Math.abs(a - candidateStart) - Math.abs(b - candidateStart)).slice(0, maxSuggestions);
 }
 
+// ¿La cita respeta la anticipación mínima de la barbería? Evita agendar en el pasado
+// o "para ya mismo" cuando no hay margen para atender.
+export function meetsMinimumNotice(candidateStart, minNoticeMin = 0, now = new Date()) {
+    const earliest = new Date(now.getTime() + (minNoticeMin || 0) * 60000);
+    return new Date(candidateStart) >= earliest;
+}
+
+// Horarios libres del día, ya filtrados por horario de atención, citas existentes y
+// anticipación mínima. Se usa para ofrecerle botones al cliente en vez de texto libre.
+export function buildAvailableSlots(dayStart, durationMin, existingBookings, dayHours = FALLBACK_HOURS, options = {}) {
+    const { stepMin = 30, maxSlots = 3, minNoticeMin = 0, now = new Date() } = options;
+    if (!dayHours || dayHours.isClosed) return [];
+
+    const slots = [];
+    const duration = durationMin || 30;
+    for (let m = dayHours.openMin; m + duration <= dayHours.closeMin && slots.length < maxSlots; m += stepMin) {
+        const candidate = new Date(dayStart);
+        candidate.setHours(0, m, 0, 0);
+        if (!meetsMinimumNotice(candidate, minNoticeMin, now)) continue;
+        if (findConflict(candidate, duration, existingBookings)) continue;
+        slots.push(candidate);
+    }
+    return slots;
+}
+
 export const formatTime12h = (date) =>
     new Date(date).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true }).replace(/^0/, "");

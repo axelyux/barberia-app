@@ -21,6 +21,7 @@
     "@builderbot/bot": "^1.4.2",
     "@builderbot/database-json": "^1.4.2",
     "@builderbot/provider-baileys": "^1.4.2",
+    "@builderbot/provider-meta": "^1.4.2",
     "@prisma/client": "^6.19.3",
     "baileys": "7.0.0-rc13",
     "prisma": "^6.19.3",

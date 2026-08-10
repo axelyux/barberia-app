@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { slugify } from "@/lib/slug";
 import { requireSuperAdmin } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
+import { defaultFlowMessages } from "@/lib/flow-defaults";
 
 const MODULES = ["CITAS", "SERVICIOS", "PRODUCTOS", "FINANZAS", "BOT", "SEGURIDAD"];
 
@@ -64,6 +65,12 @@ export async function createTenant({ name, ownerName, planPriceCents, brandColor
             data: { staffUserId: owner.id, module: moduleKey, canView: true, canAdd: true, canEdit: true, canDelete: true },
         });
     }
+
+    // Sin esto la barbería nueva arranca sin mensajes propios y el bot responde con
+    // textos genéricos, sin su nombre. Se crean ya personalizados y editables.
+    await prisma.flowMessage.createMany({
+        data: defaultFlowMessages(tenant.name).map((m) => ({ tenantId: tenant.id, key: m.key, text: m.text })),
+    });
 
     revalidatePath("/admin");
     return { slug, username: "admin", tempPassword };

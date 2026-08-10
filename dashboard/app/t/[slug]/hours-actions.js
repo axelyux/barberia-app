@@ -11,7 +11,8 @@ async function tenantIdFromSlug(slug) {
 }
 
 // days: [{ weekday, isClosed, openMin, closeMin }, ...] (7 entradas, una por día)
-export async function updateBusinessHours(slug, days) {
+// minNoticeMin: minutos de anticipación mínima para aceptar una cita por WhatsApp.
+export async function updateBusinessHours(slug, days, minNoticeMin) {
     await requirePermission("SEGURIDAD", "edit");
     const tenantId = await tenantIdFromSlug(slug);
 
@@ -20,6 +21,13 @@ export async function updateBusinessHours(slug, days) {
             where: { tenantId_weekday: { tenantId, weekday: d.weekday } },
             update: { isClosed: !!d.isClosed, openMin: d.openMin, closeMin: d.closeMin },
             create: { tenantId, weekday: d.weekday, isClosed: !!d.isClosed, openMin: d.openMin, closeMin: d.closeMin },
+        });
+    }
+
+    if (minNoticeMin !== undefined) {
+        await prisma.tenant.update({
+            where: { id: tenantId },
+            data: { bookingMinNoticeMin: Math.max(0, Math.min(1440, Math.round(minNoticeMin) || 0)) },
         });
     }
     revalidatePath(`/t/${slug}`);

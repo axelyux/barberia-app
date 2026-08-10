@@ -112,6 +112,7 @@ export default async function TenantPage({ params }) {
         name: tenant.name,
         logoUrl: tenant.logoUrl,
         brandColor: tenant.brandColor,
+        bookingMinNoticeMin: tenant.bookingMinNoticeMin,
     };
     const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
     const plainCustomer = (c) =>

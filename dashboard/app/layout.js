@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Barber SaaS — Panel",
+  title: "MiBarber — Panel",
   description: "Panel de administración para barberías gestionadas por chatbot",
 };
 

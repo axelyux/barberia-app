@@ -53,16 +53,12 @@ const main = async () => {
     const flowMessages = [
         {
             key: 'WELCOME',
+            // El menú se manda como botones de WhatsApp, así que este texto ya no debe
+            // enumerar opciones ni pedir que respondan con un número.
             text: [
                 '👋 ¡Hola! Bienvenido a *Sable Barber Studio*.',
                 '',
                 '¿En qué podemos ayudarte hoy?',
-                '',
-                '1. Agendar cita',
-                '2. Ver servicios',
-                '3. Contacto',
-                '',
-                'Responde con el número de la opción que necesites.',
             ].join('\n'),
         },
         { key: 'SERVICES_INTRO', text: '💈 *Nuestros servicios:*' },
