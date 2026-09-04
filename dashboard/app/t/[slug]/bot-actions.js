@@ -2,17 +2,11 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth";
-
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
+import { requireTenantSession } from "@/lib/auth";
+import { deleteOwned } from "@/lib/tenant-guard";
 
 export async function saveFlowMessages(slug, messages) {
-    await requirePermission("BOT", "edit");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "BOT", "edit");
 
     for (const [key, text] of Object.entries(messages)) {
         await prisma.flowMessage.upsert({
@@ -28,10 +22,9 @@ export async function saveFlowMessages(slug, messages) {
 const onlyDigits = (phone) => phone.replace(/\D/g, "");
 
 export async function createIgnoredContact(slug, { phone, label }) {
-    await requirePermission("BOT", "add");
+    const { tenantId } = await requireTenantSession(slug, "BOT", "add");
     const cleanPhone = onlyDigits(phone ?? "");
     if (cleanPhone.length < 8) throw new Error("Escribe el número completo, con código de país (ej: 521833...).");
-    const tenantId = await tenantIdFromSlug(slug);
 
     await prisma.ignoredContact.create({
         data: { tenantId, phone: cleanPhone, label: label?.trim() || null },
@@ -40,7 +33,7 @@ export async function createIgnoredContact(slug, { phone, label }) {
 }
 
 export async function deleteIgnoredContact(id, slug) {
-    await requirePermission("BOT", "delete");
-    await prisma.ignoredContact.delete({ where: { id } });
+    const { tenantId } = await requireTenantSession(slug, "BOT", "delete");
+    await deleteOwned("ignoredContact", id, tenantId, "Contacto no encontrado");
     revalidatePath(`/t/${slug}`);
 }

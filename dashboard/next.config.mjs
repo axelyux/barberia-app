@@ -7,6 +7,10 @@ const nextConfig = {
   // al Hot Module Reload del modo desarrollo, y eso rompe todo el JavaScript interactivo
   // de la página: se puede hacer scroll (es nativo del navegador) pero ningún botón responde.
   allowedDevOrigins: ["192.168.100.28"],
+  // Evita que el bundler intente empaquetar el motor nativo de Prisma en vez de dejarlo
+  // como dependencia de servidor tal cual — necesario para que funcione en las funciones
+  // serverless de Vercel.
+  serverExternalPackages: ["@prisma/client"],
 };
 
 export default nextConfig;

@@ -1,10 +1,15 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" para desarrollo local (Windows/Mac/Linux) y "rhel-openssl-3.0.x" para el
+  // runtime de funciones serverless de Vercel — sin este segundo target, el motor de
+  // Prisma compilado en tu máquina no corre una vez desplegado.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum TenantStatus {
@@ -84,11 +89,23 @@ enum BarberPaymentType {
 
 // El dueño de la plataforma (tú) — separado de StaffUser porque no pertenece a ninguna barbería.
 model SuperAdmin {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  passwordHash String
-  name         String
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  username       String   @unique
+  passwordHash   String
+  name           String
+  // Se incrementa para invalidar de golpe cualquier sesión ya emitida (ej. tras
+  // cambiar la contraseña) sin necesidad de una tabla de sesiones activas.
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now())
+}
+
+// Intentos fallidos de login, usados por lib/rate-limit.js. Antes vivía en un Map en
+// memoria del proceso, lo cual no sirve en un entorno serverless (Vercel) donde cada
+// invocación puede caer en una instancia distinta sin memoria compartida.
+model LoginAttempt {
+  key             String   @id // ej. "staff:<slug>:<username>" o "admin:<username>"
+  count           Int      @default(1)
+  firstAttemptAt  DateTime @default(now())
 }
 
 model Tenant {
@@ -127,6 +144,25 @@ model Tenant {
   serviceSales     ServiceSale[]
   shiftTypes       ShiftType[]
   cashShifts       CashShift[]
+  conversationStates ConversationState[]
+}
+
+// Progreso de una conversación de WhatsApp en curso, para no perderlo si el proceso del
+// bot se reinicia (PM2 lo reinicia solo ante cualquier caída). Se guarda en cada paso del
+// flujo de agendado; flowBienvenida la revisa al recibir un nuevo mensaje del mismo
+// teléfono. Filas con más de un par de horas de antigüedad se consideran vencidas.
+model ConversationState {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone     String
+  step      String? // ej. "ask_day", "ask_time", "done"
+  data      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, phone])
+  @@index([tenantId, updatedAt])
 }
 
 // Tipos de turno configurables por barbería (ej. "Mañana", "Tarde", "Día completo").
@@ -237,6 +273,7 @@ model Barber {
   preferredByCustomers Customer[]
 
   @@index([tenantId])
+  @@index([tenantId, active])
 }
 
 // Números que el bot debe ignorar por completo (ej. contactos personales del dueño, si usa su número propio).
@@ -272,6 +309,12 @@ model StaffUser {
   username     String
   passwordHash String
   role         StaffRole @default(USUARIO)
+  // Cuenta desactivada = no puede iniciar sesión ni mantener una sesión ya abierta,
+  // sin perder el historial de citas/ventas que la referencian (a diferencia de borrarla).
+  active         Boolean @default(true)
+  // Se incrementa al cambiar la contraseña o al forzar el cierre de sesión — cualquier
+  // cookie firmada con una versión distinta deja de ser válida de inmediato.
+  sessionVersion Int     @default(0)
 
   permissions Permission[]
   pushTokens  PushToken[]
@@ -338,6 +381,7 @@ model Service {
   serviceSales ServiceSale[]
 
   @@index([tenantId])
+  @@index([tenantId, active])
 }
 
 model Product {
@@ -355,6 +399,7 @@ model Product {
   expenses Expense[]
 
   @@index([tenantId])
+  @@index([tenantId, active])
 }
 
 model ProductSale {
@@ -430,6 +475,7 @@ model Booking {
 
   @@index([tenantId, createdAt])
   @@index([tenantId, scheduledAt])
+  @@index([tenantId, status])
 }
 
 model Payment {

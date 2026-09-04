@@ -20,10 +20,14 @@ export const formatMinutesLabel = (min) => {
 const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
 
 // Devuelve la cita existente con la que choca el horario propuesto, o null si está libre.
-export function findConflict(candidateStart, durationMin, existingBookings, excludeId = null) {
+// Si `barberId` viene definido, solo se compara contra citas de ESE barbero (dos barberos
+// distintos pueden atender clientes distintos a la misma hora); si no viene (ej. el bot de
+// WhatsApp, que nunca asigna barbero), se mantiene el choque a nivel de toda la barbería.
+export function findConflict(candidateStart, durationMin, existingBookings, excludeId = null, barberId = null) {
     const [cStart, cEnd] = getBookingRange(candidateStart, durationMin);
     for (const b of existingBookings) {
         if (!b.scheduledAt || b.id === excludeId) continue;
+        if (barberId && b.barberId && b.barberId !== barberId) continue;
         const [bStart, bEnd] = getBookingRange(b.scheduledAt, b.durationMin || 30);
         if (overlaps(cStart, cEnd, bStart, bEnd)) return b;
     }
@@ -86,3 +90,57 @@ export function buildAvailableSlots(dayStart, durationMin, existingBookings, day
 
 export const formatTime12h = (date) =>
     new Date(date).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true }).replace(/^0/, "");
+
+// Punto único de validación de disponibilidad, usado tanto por el panel (createBooking/
+// updateBooking en dashboard/app/t/[slug]/actions.js) como por el bot de WhatsApp
+// (whatsapp-meta-bot.js), para que agendar desde cualquiera de los dos lados respete
+// exactamente las mismas reglas: horario de atención, anticipación mínima y choque con
+// otra cita (del mismo barbero si se especifica uno).
+//
+// Recibe el cliente de Prisma por parámetro en vez de importar uno propio: el panel usa
+// el singleton de "@/lib/db" y el bot su propio PrismaClient — esta función es agnóstica
+// de cuál le pasen, así ambos comparten una sola implementación real.
+//
+// Devuelve { ok: true } o { ok: false, error, alternatives } (alternatives = horarios
+// cercanos libres, para que el llamador arme su propio mensaje de sugerencia).
+export async function validateBookingAvailability({
+    prisma,
+    tenantId,
+    scheduledAt,
+    durationMin,
+    barberId = null,
+    minNoticeMin = 0,
+    excludeBookingId = null,
+}) {
+    const dayStart = new Date(scheduledAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    const [dayHours, existing] = await Promise.all([
+        prisma.businessHour.findUnique({ where: { tenantId_weekday: { tenantId, weekday: dayStart.getDay() } } }),
+        prisma.booking.findMany({
+            where: {
+                tenantId,
+                scheduledAt: { gte: dayStart, lt: dayEnd },
+                status: { not: "CANCELLED" },
+                id: excludeBookingId ? { not: excludeBookingId } : undefined,
+            },
+        }),
+    ]);
+    const hours = dayHours ?? FALLBACK_HOURS;
+
+    if (!meetsMinimumNotice(scheduledAt, minNoticeMin)) {
+        return { ok: false, error: "Esa hora ya pasó o es demasiado pronto.", alternatives: [] };
+    }
+    if (!isWithinBusinessHours(scheduledAt, durationMin, hours)) {
+        return { ok: false, error: "Esa hora está fuera del horario de atención.", alternatives: [] };
+    }
+    const conflict = findConflict(scheduledAt, durationMin, existing, excludeBookingId, barberId);
+    if (conflict) {
+        const alternatives = findNearestAvailableSlots(scheduledAt, durationMin, existing, hours).filter((d) =>
+            meetsMinimumNotice(d, minNoticeMin)
+        );
+        return { ok: false, error: "Esa hora ya está ocupada.", alternatives };
+    }
+    return { ok: true };
+}

@@ -31,6 +31,7 @@ import {
     getBookingsNeedingReminder,
     markReminderSent,
     getTenantId,
+    getTenantStatus,
 } from './lib/tenant.js'
 import { notifyNewBooking, notifyConnectionLost } from './dashboard/lib/push.js'
 import { parseTimeText, parseDayChoice, matchServiceChoice, findCatalogMatch } from './lib/parsing.js'
@@ -89,6 +90,11 @@ export const flowPrecioEspecifico = addKeyword([
  */
 export const flowCitas = addKeyword(['1', 'agendar', 'cita', 'reservar'])
     .addAnswer(null, null, async (ctx, { flowDynamic, endFlow }) => {
+        // Mismo candado que el bot de Meta: si el super-admin suspendió la barbería
+        // (Tenant.status === "PAUSED") desde /admin, no se procesan citas nuevas.
+        if ((await getTenantStatus()) === 'PAUSED') {
+            return endFlow('Este servicio está temporalmente pausado. Contacta directamente a la barbería.')
+        }
         const { open, hoursText } = await checkOpenNow()
         if (!open) {
             const closedText = await getFlowMessage('CLOSED', `Ahora mismo estamos cerrados (hoy ${hoursText}). Escríbenos cuando abramos y con gusto te agendamos.`)
@@ -175,6 +181,7 @@ export const flowCitas = addKeyword(['1', 'agendar', 'cita', 'reservar'])
         try {
             await saveBooking({
                 customerPhone: ctx.from,
+                customerName: ctx.name ?? undefined,
                 serviceId: serviceId ?? undefined,
                 durationMin,
                 priceChargedCents: priceCents ?? undefined,

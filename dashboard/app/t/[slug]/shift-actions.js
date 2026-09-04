@@ -2,13 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission, getSessionUser } from "@/lib/auth";
-
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
+import { requireTenantSession } from "@/lib/auth";
+import { updateOwned, deleteOwned } from "@/lib/tenant-guard";
 
 const plainShift = (s) => ({
     ...s,
@@ -18,16 +13,13 @@ const plainShift = (s) => ({
 });
 
 export async function getOpenShift(slug) {
-    const user = await getSessionUser();
-    if (!user) throw new Error("Debes iniciar sesión.");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug);
     const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" }, include: { shiftType: true } });
     return shift ? plainShift(shift) : null;
 }
 
 export async function getShiftHistory(slug) {
-    await requirePermission("FINANZAS", "view");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
     const shifts = await prisma.cashShift.findMany({
         where: { tenantId, status: "CERRADO" },
         include: { shiftType: true },
@@ -38,11 +30,15 @@ export async function getShiftHistory(slug) {
 }
 
 export async function openShift(slug, { shiftTypeId, openingCashCents }) {
-    const user = await requirePermission("FINANZAS", "add");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
 
     const existing = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" } });
     if (existing) throw new Error("Ya hay un turno abierto.");
+
+    if (shiftTypeId) {
+        const shiftType = await prisma.shiftType.findFirst({ where: { id: shiftTypeId, tenantId } });
+        if (!shiftType) throw new Error("Tipo de turno no encontrado.");
+    }
 
     await prisma.cashShift.create({
         data: {
@@ -56,8 +52,7 @@ export async function openShift(slug, { shiftTypeId, openingCashCents }) {
 }
 
 export async function closeShift(slug, { closingCashCents, notes }) {
-    const user = await requirePermission("FINANZAS", "add");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
 
     const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" } });
     if (!shift) throw new Error("No hay ningún turno abierto.");
@@ -105,24 +100,23 @@ export async function closeShift(slug, { closingCashCents, notes }) {
 
 // ------------------------------------------------------------- Tipos de turno
 export async function createShiftType(slug, { name }) {
-    await requirePermission("SEGURIDAD", "add");
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "add");
     if (!name?.trim()) throw new Error("El nombre del turno es obligatorio");
-    const tenantId = await tenantIdFromSlug(slug);
 
     await prisma.shiftType.create({ data: { tenantId, name: name.trim() } });
     revalidatePath(`/t/${slug}`);
 }
 
 export async function updateShiftType(shiftTypeId, slug, { name, active }) {
-    await requirePermission("SEGURIDAD", "edit");
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "edit");
     if (!name?.trim()) throw new Error("El nombre del turno es obligatorio");
 
-    await prisma.shiftType.update({ where: { id: shiftTypeId }, data: { name: name.trim(), active: !!active } });
+    await updateOwned("shiftType", shiftTypeId, tenantId, { name: name.trim(), active: !!active }, "Tipo de turno no encontrado");
     revalidatePath(`/t/${slug}`);
 }
 
 export async function deleteShiftType(shiftTypeId, slug) {
-    await requirePermission("SEGURIDAD", "delete");
-    await prisma.shiftType.delete({ where: { id: shiftTypeId } });
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "delete");
+    await deleteOwned("shiftType", shiftTypeId, tenantId, "Tipo de turno no encontrado");
     revalidatePath(`/t/${slug}`);
 }

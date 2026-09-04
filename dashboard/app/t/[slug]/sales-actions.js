@@ -2,14 +2,9 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth";
+import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
-
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
+import { findOwnedOrThrow } from "@/lib/tenant-guard";
 
 const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
 const plainCustomer = (c) => (c ? { ...c, createdAt: c.createdAt.toISOString() } : null);
@@ -22,15 +17,19 @@ function amountPaidFor(netTotalCents, paymentStatus, amountPaidCents) {
     return netTotalCents;
 }
 
+async function ownedOrNull(model, id, tenantId) {
+    if (!id) return null;
+    const row = await prisma[model].findFirst({ where: { id, tenantId } });
+    return row?.id ?? null;
+}
+
 // ------------------------------------------------------------- Ventas de productos (baja stock)
 export async function registerProductSale(
     slug,
     { productId, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
-    await requirePermission("PRODUCTOS", "add");
-    const tenantId = await tenantIdFromSlug(slug);
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new Error("Producto no encontrado");
+    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "add");
+    const product = await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
     const qty = Math.max(1, Math.round(quantity) || 1);
     if (product.stock < qty) throw new Error("No hay stock suficiente de este producto.");
@@ -50,8 +49,8 @@ export async function registerProductSale(
         discountCents: discount,
         tipCents: tip,
         notes: notes?.trim() || null,
-        barberId: barberId || null,
-        customerId: customerId || null,
+        barberId: await ownedOrNull("barber", barberId, tenantId),
+        customerId: await ownedOrNull("customer", customerId, tenantId),
         paymentMethod: paymentMethod || "EFECTIVO",
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
@@ -70,11 +69,10 @@ export async function updateProductSale(
     slug,
     { productName, priceCents, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
-    await requirePermission("PRODUCTOS", "edit");
+    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "edit");
     if (!productName?.trim()) throw new Error("El nombre del producto es obligatorio");
 
-    const existing = await prisma.productSale.findUnique({ where: { id: saleId } });
-    if (!existing) throw new Error("Venta no encontrada");
+    const existing = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
 
     const price = Math.max(0, Math.round(priceCents) || 0);
     const qty = Math.max(1, Math.round(quantity) || 1);
@@ -90,8 +88,8 @@ export async function updateProductSale(
         discountCents: discount,
         tipCents: tip,
         notes: notes?.trim() || null,
-        barberId: barberId || null,
-        customerId: customerId || null,
+        barberId: await ownedOrNull("barber", barberId, tenantId),
+        customerId: await ownedOrNull("customer", customerId, tenantId),
         paymentMethod: paymentMethod || "EFECTIVO",
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
@@ -104,17 +102,16 @@ export async function updateProductSale(
         if (delta !== 0) stockOps.push(prisma.product.update({ where: { id: existing.productId }, data: { stock: { decrement: delta } } }));
     }
 
-    await prisma.$transaction([prisma.productSale.update({ where: { id: saleId }, data }), ...stockOps]);
+    await prisma.$transaction([prisma.productSale.updateMany({ where: { id: saleId, tenantId }, data }), ...stockOps]);
     revalidatePath(`/t/${slug}`);
 }
 
 export async function deleteProductSale(saleId, slug) {
-    await requirePermission("PRODUCTOS", "delete");
-    const sale = await prisma.productSale.findUnique({ where: { id: saleId } });
-    if (!sale) throw new Error("Venta no encontrada");
+    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "delete");
+    const sale = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
 
     await prisma.$transaction([
-        prisma.productSale.delete({ where: { id: saleId } }),
+        prisma.productSale.deleteMany({ where: { id: saleId, tenantId } }),
         ...(sale.productId
             ? [prisma.product.update({ where: { id: sale.productId }, data: { stock: { increment: sale.quantity } } })]
             : []),
@@ -127,10 +124,8 @@ export async function registerServiceSale(
     slug,
     { serviceId, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
-    await requirePermission("SERVICIOS", "add");
-    const tenantId = await tenantIdFromSlug(slug);
-    const service = serviceId ? await prisma.service.findUnique({ where: { id: serviceId } }) : null;
-    if (!service) throw new Error("Servicio no encontrado");
+    const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "add");
+    const service = await findOwnedOrThrow("service", serviceId, tenantId, "Servicio no encontrado");
 
     const qty = Math.max(1, Math.round(quantity) || 1);
     const status = paymentStatus || "PAGADO";
@@ -148,8 +143,8 @@ export async function registerServiceSale(
         discountCents: discount,
         tipCents: tip,
         notes: notes?.trim() || null,
-        barberId: barberId || null,
-        customerId: customerId || null,
+        barberId: await ownedOrNull("barber", barberId, tenantId),
+        customerId: await ownedOrNull("customer", customerId, tenantId),
         paymentMethod: paymentMethod || "EFECTIVO",
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
@@ -165,8 +160,9 @@ export async function updateServiceSale(
     slug,
     { serviceName, priceCents, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
-    await requirePermission("SERVICIOS", "edit");
+    const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "edit");
     if (!serviceName?.trim()) throw new Error("El nombre del servicio es obligatorio");
+    await findOwnedOrThrow("serviceSale", saleId, tenantId, "Venta no encontrada");
 
     const price = Math.max(0, Math.round(priceCents) || 0);
     const qty = Math.max(1, Math.round(quantity) || 1);
@@ -182,28 +178,27 @@ export async function updateServiceSale(
         discountCents: discount,
         tipCents: tip,
         notes: notes?.trim() || null,
-        barberId: barberId || null,
-        customerId: customerId || null,
+        barberId: await ownedOrNull("barber", barberId, tenantId),
+        customerId: await ownedOrNull("customer", customerId, tenantId),
         paymentMethod: paymentMethod || "EFECTIVO",
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
     };
     if (createdAt) data.createdAt = new Date(createdAt);
 
-    await prisma.serviceSale.update({ where: { id: saleId }, data });
+    await prisma.serviceSale.updateMany({ where: { id: saleId, tenantId }, data });
     revalidatePath(`/t/${slug}`);
 }
 
 export async function deleteServiceSale(saleId, slug) {
-    await requirePermission("SERVICIOS", "delete");
-    await prisma.serviceSale.delete({ where: { id: saleId } });
+    const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "delete");
+    await prisma.serviceSale.deleteMany({ where: { id: saleId, tenantId } });
     revalidatePath(`/t/${slug}`);
 }
 
 // ------------------------------------------------------------------- Rango de fechas / export
 export async function getSalesForRange(slug, { from, to }) {
-    await requirePermission("PRODUCTOS", "view");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "view");
     const range = { gte: new Date(from), lte: new Date(to) };
 
     const [productSales, serviceSales] = await Promise.all([
@@ -232,8 +227,7 @@ export async function getSalesForRange(slug, { from, to }) {
 }
 
 export async function exportSalesCSV(slug, { from, to }) {
-    await requirePermission("PRODUCTOS", "view");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "view");
     const range = { gte: new Date(from), lte: new Date(to) };
 
     const [productSales, serviceSales] = await Promise.all([

@@ -5,7 +5,7 @@ import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import { Field, TextInput } from "@/components/FormField";
 import { money, shortDateTime, shortDate, toDateInputValue, contrastText } from "@/lib/format";
-import { createCustomer, updateCustomer, deleteCustomer, getCustomerHistory } from "@/app/t/[slug]/customer-actions";
+import { createCustomer, updateCustomer, deleteCustomer, getCustomerHistory, getCustomersPage } from "@/app/t/[slug]/customer-actions";
 
 const HISTORY_KIND_LABEL = { booking: "Cita", product: "Producto", service: "Servicio" };
 
@@ -189,13 +189,47 @@ function EditCustomerForm({ customer, barbers, slug, brandStyle, isPending, erro
     );
 }
 
-export default function CustomersEditor({ customers, barbers = [], slug, brandColor, perms }) {
+const nextCursorFor = (list) => (list.length >= 200 ? list[list.length - 1]?.id ?? null : null);
+
+export default function CustomersEditor({ customers: initialCustomers, barbers = [], slug, brandColor, perms }) {
+    const [customers, setCustomers] = useState(initialCustomers);
+    // La página inicial trae hasta 200 clientes (tope de seguridad en page.js); si la
+    // barbería tiene más, "Cargar más" pagina el resto con getCustomersPage().
+    const [nextCursor, setNextCursor] = useState(() => nextCursorFor(initialCustomers));
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    // Cada vez que el servidor vuelve a renderizar esta página (ej. tras crear/editar/
+    // borrar un cliente, por revalidatePath) llega un arreglo `initialCustomers` nuevo.
+    // Se reinicia el estado local durante el render mismo (patrón recomendado por React
+    // para "resetear estado cuando cambia una prop"), no dentro de un useEffect —
+    // llamar setState síncrono en un efecto dispara un re-render extra innecesario.
+    const [syncedFrom, setSyncedFrom] = useState(initialCustomers);
+    if (syncedFrom !== initialCustomers) {
+        setSyncedFrom(initialCustomers);
+        setCustomers(initialCustomers);
+        setNextCursor(nextCursorFor(initialCustomers));
+    }
+
     const [createOpen, setCreateOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     const editing = customers.find((c) => c.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
+
+    const loadMore = async () => {
+        if (!nextCursor || loadingMore) return;
+        setLoadingMore(true);
+        try {
+            const { customers: more, nextCursor: cursor } = await getCustomersPage(slug, { cursor: nextCursor });
+            setCustomers((prev) => [...prev, ...more]);
+            setNextCursor(cursor);
+        } catch (err) {
+            setError(err?.message ?? "No se pudo cargar más clientes.");
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const run = (fn, onDone) => {
         setError("");
@@ -248,6 +282,16 @@ export default function CustomersEditor({ customers, barbers = [], slug, brandCo
                 ))}
                 {customers.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">Todavía no agregas clientes.</p> : null}
             </div>
+
+            {nextCursor ? (
+                <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="mt-2 w-full rounded-md border border-zinc-800 bg-zinc-900 py-2.5 text-xs font-bold text-zinc-400 disabled:opacity-60"
+                >
+                    {loadingMore ? "Cargando…" : "Cargar más clientes"}
+                </button>
+            ) : null}
 
             {perms.canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Agregar cliente">

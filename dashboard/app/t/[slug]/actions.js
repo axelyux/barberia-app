@@ -1,40 +1,35 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth";
-import { findConflict, findNearestAvailableSlots, formatTime12h, FALLBACK_HOURS } from "@/lib/scheduling";
+import { requireTenantSession } from "@/lib/auth";
+import { validateBookingAvailability, formatTime12h } from "@/lib/scheduling";
+import { findOwnedOrThrow, updateOwned, deleteOwned } from "@/lib/tenant-guard";
 
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
-
-async function bookingsForDay(tenantId, dayStart, excludeId = null) {
-    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-    const rows = await prisma.booking.findMany({
-        where: { tenantId, scheduledAt: { gte: dayStart, lt: dayEnd }, status: { not: "CANCELLED" }, id: excludeId ? { not: excludeId } : undefined },
-    });
-    return rows;
-}
-
-async function dayHoursFor(tenantId, dayStart) {
-    const row = await prisma.businessHour.findUnique({ where: { tenantId_weekday: { tenantId, weekday: dayStart.getDay() } } });
-    return row ?? FALLBACK_HOURS;
-}
-
-function conflictError(candidateStart, durationMin, existing, dayHours) {
-    const alternatives = findNearestAvailableSlots(candidateStart, durationMin, existing, dayHours);
-    const suggestionText = alternatives.length
+function conflictError({ error, alternatives }) {
+    const suggestionText = alternatives?.length
         ? ` ¿Te sirve a las ${alternatives.map(formatTime12h).join(" o a las ")}?`
         : " No hay otro horario libre cerca ese día.";
-    return new Error(`Esa hora ya está ocupada.${suggestionText}`);
+    return new Error(`${error}${suggestionText}`);
+}
+
+// Reintenta una vez si Postgres detecta un conflicto de serialización entre dos
+// solicitudes casi simultáneas para el mismo horario (ver sección "Concurrencia" del
+// encargo) — evita la doble reserva sin construir un sistema de locks propio.
+async function withSerializableRetry(fn) {
+    try {
+        return await fn();
+    } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2034") {
+            return await fn();
+        }
+        throw err;
+    }
 }
 
 export async function getBookingsForDate(slug, dateISO) {
-    await requirePermission("CITAS", "view");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "view");
     const dayStart = new Date(dateISO);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
@@ -53,82 +48,131 @@ export async function getBookingsForDate(slug, dateISO) {
 }
 
 export async function markBookingCompleted(bookingId, slug, { paymentMethod = "EFECTIVO", paymentStatus = "PAGADO", amountPaidCents } = {}) {
-    await requirePermission("CITAS", "edit");
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
-    if (!booking) throw new Error("Cita no encontrada");
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
+    const booking = await findOwnedOrThrow("booking", bookingId, tenantId, "Cita no encontrada");
 
     const fullPrice = booking.priceChargedCents ?? 0;
     const paid = paymentStatus === "NO_PAGADO" ? 0 : paymentStatus === "PARCIAL" ? Math.max(0, Math.min(fullPrice, Math.round(amountPaidCents) || 0)) : fullPrice;
 
-    await prisma.booking.update({
-        where: { id: bookingId },
-        data: { status: "COMPLETED", paymentMethod, paymentStatus, amountPaidCents: paid, completedAt: new Date() },
+    await updateOwned("booking", bookingId, tenantId, {
+        status: "COMPLETED",
+        paymentMethod,
+        paymentStatus,
+        amountPaidCents: paid,
+        completedAt: new Date(),
     });
     revalidatePath(`/t/${slug}`);
 }
 
 export async function cancelBooking(bookingId, slug) {
-    await requirePermission("CITAS", "edit");
-    await prisma.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED" } });
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
+    await updateOwned("booking", bookingId, tenantId, { status: "CANCELLED" }, "Cita no encontrada");
     revalidatePath(`/t/${slug}`);
 }
 
 export async function createBooking(slug, { customerName, customerPhone, serviceId, barberId, dateISO, hour, minute }) {
-    await requirePermission("CITAS", "add");
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "add");
     if (!customerName?.trim()) throw new Error("El nombre del cliente es obligatorio");
-    const tenantId = await tenantIdFromSlug(slug);
 
     const dayStart = new Date(dateISO);
     dayStart.setHours(0, 0, 0, 0);
     const scheduledAt = new Date(dayStart);
     scheduledAt.setHours(hour, minute, 0, 0);
 
-    const service = serviceId ? await prisma.service.findUnique({ where: { id: serviceId } }) : null;
+    const service = serviceId ? await findOwnedOrThrow("service", serviceId, tenantId, "Servicio no encontrado") : null;
+    const barber = barberId ? await findOwnedOrThrow("barber", barberId, tenantId, "Barbero no encontrado") : null;
     const durationMin = service?.durationMin ?? 30;
 
-    const [existing, dayHours] = await Promise.all([bookingsForDay(tenantId, dayStart), dayHoursFor(tenantId, dayStart)]);
-    const conflict = findConflict(scheduledAt, durationMin, existing);
-    if (conflict) throw conflictError(scheduledAt, durationMin, existing, dayHours);
+    await withSerializableRetry(() =>
+        prisma.$transaction(
+            async (tx) => {
+                const result = await validateBookingAvailability({
+                    prisma: tx,
+                    tenantId,
+                    scheduledAt,
+                    durationMin,
+                    barberId: barber?.id ?? null,
+                });
+                if (!result.ok) throw conflictError(result);
 
-    await prisma.booking.create({
-        data: {
-            tenantId,
-            customerName: customerName.trim(),
-            customerPhone: customerPhone?.trim() || "—",
-            serviceId: service?.id,
-            barberId: barberId || null,
-            day: dayStart.toLocaleDateString("es-MX"),
-            time: formatTime12h(scheduledAt),
-            scheduledAt,
-            durationMin,
-            status: "PENDING",
-            priceChargedCents: service?.priceCents,
-        },
-    });
+                await tx.booking.create({
+                    data: {
+                        tenantId,
+                        customerName: customerName.trim(),
+                        customerPhone: customerPhone?.trim() || "—",
+                        serviceId: service?.id,
+                        barberId: barber?.id ?? null,
+                        day: dayStart.toLocaleDateString("es-MX"),
+                        time: formatTime12h(scheduledAt),
+                        scheduledAt,
+                        durationMin,
+                        status: "PENDING",
+                        priceChargedCents: service?.priceCents,
+                    },
+                });
+            },
+            { isolation: Prisma.TransactionIsolationLevel.Serializable }
+        )
+    );
     revalidatePath(`/t/${slug}`);
 }
 
 export async function updateBooking(bookingId, slug, { customerName, customerPhone, serviceId, barberId }) {
-    await requirePermission("CITAS", "edit");
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
     if (!customerName?.trim()) throw new Error("El nombre del cliente es obligatorio");
-    const service = serviceId ? await prisma.service.findUnique({ where: { id: serviceId } }) : null;
 
-    await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
+    const existing = await findOwnedOrThrow("booking", bookingId, tenantId, "Cita no encontrada");
+    const service = serviceId ? await findOwnedOrThrow("service", serviceId, tenantId, "Servicio no encontrado") : null;
+    const barber = barberId ? await findOwnedOrThrow("barber", barberId, tenantId, "Barbero no encontrado") : null;
+    const durationMin = service?.durationMin ?? existing.durationMin;
+
+    // A diferencia del comportamiento anterior (que no validaba nada al editar), reusamos
+    // la misma validación que al crear — cambiar de servicio o de barbero puede cambiar
+    // la duración o dejar la cita chocando con otra que antes no chocaba.
+    if (existing.scheduledAt) {
+        await withSerializableRetry(() =>
+            prisma.$transaction(
+                async (tx) => {
+                    const result = await validateBookingAvailability({
+                        prisma: tx,
+                        tenantId,
+                        scheduledAt: existing.scheduledAt,
+                        durationMin,
+                        barberId: barber?.id ?? null,
+                        excludeBookingId: bookingId,
+                    });
+                    if (!result.ok) throw conflictError(result);
+
+                    await tx.booking.update({
+                        where: { id: bookingId },
+                        data: {
+                            customerName: customerName.trim(),
+                            customerPhone: customerPhone?.trim() || "—",
+                            serviceId: service?.id ?? null,
+                            barberId: barber?.id ?? null,
+                            durationMin,
+                            priceChargedCents: service?.priceCents ?? existing.priceChargedCents,
+                        },
+                    });
+                },
+                { isolation: Prisma.TransactionIsolationLevel.Serializable }
+            )
+        );
+    } else {
+        await updateOwned("booking", bookingId, tenantId, {
             customerName: customerName.trim(),
             customerPhone: customerPhone?.trim() || "—",
             serviceId: service?.id ?? null,
-            barberId: barberId || null,
-            durationMin: service?.durationMin ?? undefined,
-            priceChargedCents: service?.priceCents,
-        },
-    });
+            barberId: barber?.id ?? null,
+            durationMin,
+            priceChargedCents: service?.priceCents ?? existing.priceChargedCents,
+        });
+    }
     revalidatePath(`/t/${slug}`);
 }
 
 export async function deleteBooking(bookingId, slug) {
-    await requirePermission("CITAS", "delete");
-    await prisma.booking.delete({ where: { id: bookingId } });
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "delete");
+    await deleteOwned("booking", bookingId, tenantId, "Cita no encontrada");
     revalidatePath(`/t/${slug}`);
 }

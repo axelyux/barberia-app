@@ -8,8 +8,11 @@
     "dashboard"
   ],
   "scripts": {
-    "start": "node --env-file=.env app.js",
+    "start:router": "node --env-file=.env webhook-router.js",
+    "start:bot": "node --env-file=.env whatsapp-meta-bot.js",
+    "start:legacy-baileys": "node --env-file=.env app.js",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
     "dashboard:dev": "npm run dev --workspace dashboard"

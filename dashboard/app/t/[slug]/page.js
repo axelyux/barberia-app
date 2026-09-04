@@ -87,7 +87,10 @@ export default async function TenantPage({ params }) {
         prisma.businessHour.findMany({ where: { tenantId: tenant.id } }),
         prisma.ignoredContact.findMany({ where: { tenantId: tenant.id }, orderBy: { createdAt: "desc" } }),
         prisma.barber.findMany({ where: { tenantId: tenant.id }, orderBy: { createdAt: "asc" } }),
-        prisma.customer.findMany({ where: { tenantId: tenant.id }, orderBy: { createdAt: "desc" } }),
+        // Tope de seguridad: la lista completa se pagina de verdad con getCustomersPage()
+        // (botón "Cargar más" en CustomersEditor) — esto solo evita traer un dataset sin
+        // límite en la carga inicial de la página si una barbería acumula miles de clientes.
+        prisma.customer.findMany({ where: { tenantId: tenant.id }, orderBy: { createdAt: "desc" }, take: 200 }),
         prisma.shiftType.findMany({ where: { tenantId: tenant.id }, orderBy: { createdAt: "asc" } }),
         prisma.cashShift.findMany({
             where: { tenantId: tenant.id, status: "CERRADO" },
@@ -134,7 +137,7 @@ export default async function TenantPage({ params }) {
 
     const plainExpenses = expenses30.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() }));
     const plainDaily = finance.daily.map((d) => ({ ...d, date: d.date.toISOString() }));
-    const plainStaffUsers = staffUsers.map((u) => ({ id: u.id, name: u.name, username: u.username, role: u.role, permissions: u.permissions }));
+    const plainStaffUsers = staffUsers.map((u) => ({ id: u.id, name: u.name, username: u.username, role: u.role, active: u.active, permissions: u.permissions }));
     const plainCurrentUser = { id: sessionUser.id, name: sessionUser.name, role: sessionUser.role };
     const plainBarbers = barbers.map((b) => plainBarber(b));
     const plainCustomers = customers.map((c) => plainCustomer(c));

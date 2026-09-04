@@ -10,19 +10,19 @@ export async function loginAdmin(prevState, formData) {
     const password = String(formData.get("password") ?? "");
     const rateLimitKey = `admin:${username}`;
 
-    const { blocked, minutesLeft } = checkRateLimit(rateLimitKey);
+    const { blocked, minutesLeft } = await checkRateLimit(rateLimitKey);
     if (blocked) {
         return { error: `Demasiados intentos fallidos. Intenta de nuevo en ${minutesLeft} minuto(s).` };
     }
 
     const admin = await prisma.superAdmin.findFirst({ where: { username } });
     if (!admin || !verifyPassword(password, admin.passwordHash)) {
-        recordFailedAttempt(rateLimitKey);
+        await recordFailedAttempt(rateLimitKey);
         return { error: "Usuario o contraseña incorrectos." };
     }
 
-    clearAttempts(rateLimitKey);
-    await createAdminSession(admin.id);
+    await clearAttempts(rateLimitKey);
+    await createAdminSession(admin.id, admin.sessionVersion);
     redirect("/admin");
 }
 

@@ -5,7 +5,7 @@ import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import { Field, TextInput } from "@/components/FormField";
 import { contrastText } from "@/lib/format";
-import { createUser, updateUser, deleteUser } from "@/app/t/[slug]/security-actions";
+import { createUser, updateUser, deleteUser, deactivateUser, reactivateUser } from "@/app/t/[slug]/security-actions";
 
 const MODULES = [
     { key: "CITAS", label: "Citas" },
@@ -80,7 +80,7 @@ function PermissionMatrix({ permissions, setPermissions }) {
     );
 }
 
-function UserForm({ initial, requirePassword, brandStyle, isPending, error, onSave, onDelete }) {
+function UserForm({ initial, requirePassword, brandStyle, isPending, error, onSave, onDelete, onToggleActive }) {
     const [name, setName] = useState(initial?.name ?? "");
     const [username, setUsername] = useState(initial?.username ?? "");
     const [password, setPassword] = useState("");
@@ -129,6 +129,11 @@ function UserForm({ initial, requirePassword, brandStyle, isPending, error, onSa
                 >
                     Guardar
                 </SheetButton>
+                {onToggleActive ? (
+                    <SheetButton variant="ghost" disabled={isPending} onClick={onToggleActive}>
+                        {initial?.active === false ? "Reactivar cuenta" : "Desactivar cuenta (no podrá iniciar sesión)"}
+                    </SheetButton>
+                ) : null}
                 {onDelete ? (
                     <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
                         Eliminar usuario
@@ -182,7 +187,9 @@ export default function UsersEditor({ users, slug, brandColor, perms }) {
                         disabled={!perms.canEdit}
                     >
                         <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-zinc-50">{u.name}</p>
+                            <p className="truncate text-sm font-bold text-zinc-50">
+                                {u.name} {u.active === false ? <span className="text-xs font-normal text-red-400">(inactivo)</span> : null}
+                            </p>
                             <p className="truncate text-xs text-zinc-400">@{u.username}</p>
                         </div>
                         <span className="shrink-0 rounded-md border border-zinc-700 px-2 py-0.5 text-[10.5px] font-bold uppercase text-zinc-400">
@@ -209,11 +216,16 @@ export default function UsersEditor({ users, slug, brandColor, perms }) {
                 {editing ? (
                     <UserForm
                         key={editing.id}
-                        initial={{ name: editing.name, username: editing.username, role: editing.role, permissions: permissionsFromUser(editing) }}
+                        initial={{ name: editing.name, username: editing.username, role: editing.role, active: editing.active, permissions: permissionsFromUser(editing) }}
                         brandStyle={brandStyle}
                         isPending={isPending}
                         error={error}
                         onSave={(data) => run(() => updateUser(editing.id, slug, data))}
+                        onToggleActive={
+                            perms.canEdit
+                                ? () => run(() => (editing.active === false ? reactivateUser(editing.id, slug) : deactivateUser(editing.id, slug)))
+                                : undefined
+                        }
                         onDelete={perms.canDelete ? () => run(() => deleteUser(editing.id, slug), () => setEditingId(null)) : undefined}
                     />
                 ) : null}

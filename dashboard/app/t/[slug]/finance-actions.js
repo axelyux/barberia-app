@@ -2,23 +2,18 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth";
+import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
-
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
+import { findOwnedOrThrow } from "@/lib/tenant-guard";
 
 export async function createExpense(
     slug,
     { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
 ) {
-    await requirePermission("FINANZAS", "add");
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
-    const tenantId = await tenantIdFromSlug(slug);
+    if (productId) await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
     const qty = productId ? Math.max(1, Math.round(quantity) || 1) : null;
     const data = {
@@ -52,11 +47,11 @@ export async function updateExpense(
     slug,
     { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
 ) {
-    await requirePermission("FINANZAS", "edit");
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "edit");
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
 
-    const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
-    if (!existing) throw new Error("Gasto no encontrado");
+    const existing = await findOwnedOrThrow("expense", expenseId, tenantId, "Gasto no encontrado");
+    if (productId) await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
     const newQty = productId ? Math.max(1, Math.round(quantity) || 1) : null;
     const data = {
@@ -85,13 +80,12 @@ export async function updateExpense(
         stockOps.push(prisma.product.update({ where: { id: productId }, data: { stock: { increment: newQty } } }));
     }
 
-    await prisma.$transaction([prisma.expense.update({ where: { id: expenseId }, data }), ...stockOps]);
+    await prisma.$transaction([prisma.expense.updateMany({ where: { id: expenseId, tenantId }, data }), ...stockOps]);
     revalidatePath(`/t/${slug}`);
 }
 
 export async function getExpensesForRange(slug, { from, to }) {
-    await requirePermission("FINANZAS", "view");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
     const expenses = await prisma.expense.findMany({
         where: { tenantId, createdAt: { gte: new Date(from), lte: new Date(to) } },
         include: { product: true },
@@ -101,8 +95,7 @@ export async function getExpensesForRange(slug, { from, to }) {
 }
 
 export async function exportExpensesCSV(slug, { from, to }) {
-    await requirePermission("FINANZAS", "view");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
     const expenses = await prisma.expense.findMany({
         where: { tenantId, createdAt: { gte: new Date(from), lte: new Date(to) } },
         include: { product: true },
@@ -123,13 +116,12 @@ export async function exportExpensesCSV(slug, { from, to }) {
 }
 
 export async function deleteExpense(expenseId, slug) {
-    await requirePermission("FINANZAS", "delete");
-    const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
-    if (!existing) throw new Error("Gasto no encontrado");
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "delete");
+    const existing = await findOwnedOrThrow("expense", expenseId, tenantId, "Gasto no encontrado");
 
-    const ops = [prisma.expense.delete({ where: { id: expenseId } })];
+    const ops = [];
     if (existing.productId && existing.quantity) {
-        const product = await prisma.product.findUnique({ where: { id: existing.productId } });
+        const product = await prisma.product.findFirst({ where: { id: existing.productId, tenantId } });
         if (product) {
             ops.push(
                 prisma.product.update({
@@ -139,6 +131,6 @@ export async function deleteExpense(expenseId, slug) {
             );
         }
     }
-    await prisma.$transaction(ops);
+    await prisma.$transaction([prisma.expense.deleteMany({ where: { id: expenseId, tenantId } }), ...ops]);
     revalidatePath(`/t/${slug}`);
 }

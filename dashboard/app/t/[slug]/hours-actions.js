@@ -2,19 +2,12 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth";
-
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
+import { requireTenantSession } from "@/lib/auth";
 
 // days: [{ weekday, isClosed, openMin, closeMin }, ...] (7 entradas, una por día)
 // minNoticeMin: minutos de anticipación mínima para aceptar una cita por WhatsApp.
 export async function updateBusinessHours(slug, days, minNoticeMin) {
-    await requirePermission("SEGURIDAD", "edit");
-    const tenantId = await tenantIdFromSlug(slug);
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "edit");
 
     for (const d of days) {
         await prisma.businessHour.upsert({

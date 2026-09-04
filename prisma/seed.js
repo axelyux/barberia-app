@@ -32,13 +32,8 @@ const main = async () => {
         },
     })
 
-    const [corte, barba, combo] = await Promise.all([
-        prisma.service.findFirst({ where: { tenantId: sable.id, name: 'Corte' } }),
-        prisma.service.findFirst({ where: { tenantId: sable.id, name: 'Barba' } }),
-        prisma.service.findFirst({ where: { tenantId: sable.id, name: 'Combo (Corte + Barba)' } }),
-    ])
-
-    if (!corte || !barba || !combo) {
+    const hasServices = (await prisma.service.count({ where: { tenantId: sable.id } })) > 0
+    if (!hasServices) {
         await prisma.service.createMany({
             data: [
                 { tenantId: sable.id, name: 'Corte', priceCents: 15000, durationMin: 30, sortOrder: 1 },
@@ -47,8 +42,14 @@ const main = async () => {
             ],
         })
     }
+    // Antes esto se guardaba en el destructuring de arriba (findFirst, antes de crear),
+    // así que en una base de datos nueva "corte"/"barba"/"combo" quedaban en null para
+    // siempre aunque el createMany sí los hubiera creado — había que releerlos después.
     const services = await prisma.service.findMany({ where: { tenantId: sable.id } })
     const svc = (name) => services.find((s) => s.name === name)
+    const corte = svc('Corte')
+    const barba = svc('Barba')
+    const combo = svc('Combo (Corte + Barba)')
 
     const flowMessages = [
         {

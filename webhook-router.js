@@ -9,7 +9,11 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 const PORT = process.env.ROUTER_PORT ?? 3100
-const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN ?? 'barbersaas2026'
+const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN
+if (!VERIFY_TOKEN) {
+    console.error('❌ Falta META_VERIFY_TOKEN (debe ser idéntico al configurado en el panel de Meta, sin valor de respaldo).')
+    process.exit(1)
+}
 
 const readBody = (req) =>
     new Promise((resolve, reject) => {

@@ -10,9 +10,10 @@ process.env.TZ = 'America/Mexico_City'
 
 import { createBot, createProvider, createFlow, addKeyword, MemoryDB } from '@builderbot/bot'
 import { MetaProvider } from '@builderbot/provider-meta'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import {
     getTenant,
+    getTenantStatus,
     getFlowMessage,
     getActiveServices,
     getActiveProducts,
@@ -25,14 +26,15 @@ import {
     centsToText,
     getBookingsNeedingReminder,
     markReminderSent,
+    saveConversationStep,
+    getConversationState,
+    clearConversationState,
 } from './lib/tenant.js'
 import { parseTimeText, parseDayChoice, matchServiceChoice, findCatalogMatch } from './lib/parsing.js'
 import {
-    findConflict,
-    findNearestAvailableSlots,
-    isWithinBusinessHours,
-    meetsMinimumNotice,
+    validateBookingAvailability,
     buildAvailableSlots,
+    meetsMinimumNotice,
     formatTime12h,
     formatMinutesLabel,
 } from './dashboard/lib/scheduling.js'
@@ -41,6 +43,12 @@ const prisma = new PrismaClient()
 const TENANT_SLUG = process.env.METATENANT_SLUG
 if (!TENANT_SLUG) {
     console.error('❌ Falta METATENANT_SLUG (slug de la barbería que corre en este proceso).')
+    process.exit(1)
+}
+
+const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN
+if (!VERIFY_TOKEN) {
+    console.error('❌ Falta META_VERIFY_TOKEN (debe ser idéntico al configurado en el panel de Meta, sin valor de respaldo).')
     process.exit(1)
 }
 
@@ -69,6 +77,23 @@ const buildServicesText = async () => {
     return [intro, '', ...serviceLines, ...promoLines, '', 'Escribe *agendar* si deseas reservar una cita.'].join('\n')
 }
 
+// El super-admin puede suspender una barbería desde /admin (botón "Suspender bot") —
+// esto es lo que hace que ese botón tenga efecto real: se revisa el estado justo antes
+// de responder cualquier mensaje, no solo una vez al arrancar el proceso.
+// PAUSED: el bot no procesa nada, solo contesta el aviso fijo de abajo.
+// PAST_DUE: es un estado informativo para el super-admin (aviso de cobro pendiente), no
+// restringe al cliente final — el negocio sigue operando durante el periodo de gracia.
+const PAUSED_NOTICE = 'Este servicio está temporalmente pausado. Contacta directamente a la barbería.'
+
+async function guardActive(flowDynamic) {
+    const status = await getTenantStatus(tenantId)
+    if (status === 'PAUSED') {
+        await flowDynamic(PAUSED_NOTICE)
+        return false
+    }
+    return true
+}
+
 // Nota: el disparador de bienvenida usa palabras clave explícitas, no EVENTS.WELCOME —
 // con el proveedor de Meta ese evento automático no se dispara (ver hallazgo de la sesión
 // de pruebas). Con Baileys (app.js) sí funciona EVENTS.WELCOME, así que allá se deja igual.
@@ -87,12 +112,23 @@ const BTN_CONTACTO = 'Contacto'
 
 const flowBienvenida = addKeyword(['hola', 'ola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'hello', 'menu', 'inicio'])
     .addAction(async (ctx, { flowDynamic }) => {
+        if (!(await guardActive(flowDynamic))) return
         const { open, hoursText } = await checkOpenNow(tenantId)
         if (!open) {
             const closedText = await getFlowMessage('CLOSED', `Ahora mismo estamos cerrados (hoy ${hoursText}). Escríbenos cuando abramos.`, tenantId)
             await flowDynamic(closedText)
             return
         }
+
+        // Si el cliente tenía una cita a medio agendar (ej. el bot se reinició a mitad
+        // de la conversación), se lo recordamos en vez de que sienta que se perdió todo.
+        const pending = await getConversationState(tenantId, ctx.from)
+        if (pending?.step && pending.step !== 'done' && pending.data?.serviceName) {
+            await flowDynamic(
+                `Vi que ya habías elegido *${pending.data.serviceName}*. Escribe *agendar* para continuar donde te quedaste.`
+            )
+        }
+
         const text = await getFlowMessage('WELCOME', '👋 ¡Hola! ¿En qué podemos ayudarte?', tenantId)
         await flowDynamic([
             {
@@ -104,6 +140,7 @@ const flowBienvenida = addKeyword(['hola', 'ola', 'buenas', 'buen dia', 'buenos 
 
 const flowServicios = addKeyword(['servicios', 'precios', 'catalogo'])
     .addAction(async (ctx, { flowDynamic }) => {
+        if (!(await guardActive(flowDynamic))) return
         await flowDynamic(await buildServicesText())
     })
 
@@ -111,6 +148,7 @@ const flowPrecioEspecifico = addKeyword([
     'cuanto cuesta', 'cuánto cuesta', 'cuanto vale', 'cuánto vale', 'costo de', 'precio de', 'que precio tiene', 'qué precio tiene',
 ])
     .addAction(async (ctx, { flowDynamic }) => {
+        if (!(await guardActive(flowDynamic))) return
         const [services, products] = await Promise.all([getActiveServices(tenantId), getActiveProducts(tenantId)])
         const match = findCatalogMatch(ctx.body, services, products)
         if (match) {
@@ -122,12 +160,14 @@ const flowPrecioEspecifico = addKeyword([
 
 const flowContacto = addKeyword(['contacto', 'ayuda', 'asesor'])
     .addAction(async (ctx, { flowDynamic }) => {
+        if (!(await guardActive(flowDynamic))) return
         const text = await getFlowMessage('CONTACT', 'Contacta a administración.', tenantId)
         await flowDynamic(text)
     })
 
 const flowCitas = addKeyword(['agendar', 'cita', 'reservar', 'agendar cita'])
-    .addAction(async (ctx, { provider, endFlow }) => {
+    .addAction(async (ctx, { provider, endFlow, flowDynamic }) => {
+        if (!(await guardActive(flowDynamic))) return endFlow()
         const { open, hoursText } = await checkOpenNow(tenantId)
         if (!open) {
             const closedText = await getFlowMessage('CLOSED', `Ahora mismo estamos cerrados (hoy ${hoursText}). Escríbenos cuando abramos y con gusto te agendamos.`, tenantId)
@@ -164,12 +204,14 @@ const flowCitas = addKeyword(['agendar', 'cita', 'reservar', 'agendar cita'])
         if (!service) {
             return fallBack('No reconocí ese servicio. Responde con el número de la lista (ej: "1").')
         }
-        await state.update({
+        const patch = {
             serviceId: service.id,
             serviceName: service.name,
             durationMin: service.durationMin,
             priceCents: service.priceCents,
-        })
+        }
+        await state.update(patch)
+        await saveConversationStep(tenantId, ctx.from, 'ask_day', patch)
     })
     .addAction(async (ctx, { flowDynamic }) => {
         const askDay = await getFlowMessage('BOOKING_ASK_DAY', '📅 ¿Para cuándo la quieres?', tenantId)
@@ -178,7 +220,9 @@ const flowCitas = addKeyword(['agendar', 'cita', 'reservar', 'agendar cita'])
     .addAction({ capture: true }, async (ctx, { state, fallBack }) => {
         const day = parseDayChoice(ctx.body)
         if (day === null) return fallBack('No entendí. Elige *Hoy* o *Mañana* con los botones.')
+        const current = state.getMyState()
         await state.update({ dayOffset: day })
+        await saveConversationStep(tenantId, ctx.from, 'ask_time', { ...current, dayOffset: day })
     })
     .addAction(async (ctx, { state, provider, endFlow }) => {
         const { dayOffset, durationMin } = state.getMyState()
@@ -239,7 +283,6 @@ const flowCitas = addKeyword(['agendar', 'cita', 'reservar', 'agendar cita'])
         const scheduledAt = new Date(dayStart)
         scheduledAt.setHours(parsed.hour, parsed.minute, 0, 0)
 
-        const dayHours = await getBusinessHoursFor(dayStart, tenantId)
         const { bookingMinNoticeMin } = await getTenant(tenantId)
 
         // Si el cliente no dijo am/pm y la hora ya pasó, se asume que se refería a la tarde/noche
@@ -248,50 +291,62 @@ const flowCitas = addKeyword(['agendar', 'cita', 'reservar', 'agendar cita'])
             scheduledAt.setHours(parsed.hour + 12, parsed.minute, 0, 0)
         }
 
-        if (!meetsMinimumNotice(scheduledAt, bookingMinNoticeMin)) {
-            const minAviso = bookingMinNoticeMin > 0 ? ` Necesitamos al menos ${bookingMinNoticeMin} minutos de anticipación.` : ''
-            return fallBack(`Esa hora ya pasó o es demasiado pronto.${minAviso} ¿A qué otra hora te gustaría?`)
-        }
-
-        if (!isWithinBusinessHours(scheduledAt, durationMin, dayHours)) {
-            return fallBack(`Esa hora está fuera de nuestro horario (${formatMinutesLabel(dayHours.openMin)} a ${formatMinutesLabel(dayHours.closeMin)}) o el servicio no alcanza a terminar antes de cerrar. ¿A qué otra hora te gustaría?`)
-        }
-
-        const existing = await getBookingsForDay(dayStart, tenantId)
-        const conflict = findConflict(scheduledAt, durationMin, existing)
-        if (conflict) {
-            const alternatives = findNearestAvailableSlots(scheduledAt, durationMin, existing, dayHours).filter((d) =>
-                meetsMinimumNotice(d, bookingMinNoticeMin)
-            )
-            const suggestion = alternatives.length
-                ? `¿Qué tal a las ${alternatives.map(formatTime12h).join(' o a las ')}?`
+        const result = await validateBookingAvailability({
+            prisma,
+            tenantId,
+            scheduledAt,
+            durationMin,
+            minNoticeMin: bookingMinNoticeMin,
+        })
+        if (!result.ok) {
+            const suggestion = result.alternatives?.length
+                ? `¿Qué tal a las ${result.alternatives.map(formatTime12h).join(' o a las ')}?`
                 : 'No encuentro otro horario libre cerca ese día — prueba otro día.'
-            return fallBack(`ⓘ ${formatTime12h(scheduledAt)} ya está ocupado. ${suggestion}`)
+            return fallBack(`ⓘ ${result.error} ${suggestion}`)
         }
 
+        const current = state.getMyState()
         await state.update({ scheduledAt: scheduledAt.toISOString() })
+        await saveConversationStep(tenantId, ctx.from, 'confirm', { ...current, scheduledAt: scheduledAt.toISOString() })
     })
     .addAction(async (ctx, { state, flowDynamic, endFlow }) => {
         const { serviceName, priceCents, durationMin, scheduledAt, serviceId } = state.getMyState()
         const when = new Date(scheduledAt)
 
         try {
-            await saveBooking(
-                {
-                    customerPhone: ctx.from,
-                    serviceId: serviceId ?? undefined,
-                    durationMin,
-                    priceChargedCents: priceCents ?? undefined,
-                    scheduledAt: when,
-                    day: when.toLocaleDateString('es-MX'),
-                    time: formatTime12h(when),
+            // Se revalida disponibilidad dentro de una transacción serializable justo antes
+            // de guardar: si dos clientes pidieron la misma hora casi al mismo tiempo,
+            // Postgres hace fallar a uno de los dos (error P2034) en vez de dejar dos citas
+            // encimadas — aquí se atrapa y se le avisa al cliente que ya no está disponible.
+            await prisma.$transaction(
+                async (tx) => {
+                    const result = await validateBookingAvailability({ prisma: tx, tenantId, scheduledAt: when, durationMin })
+                    if (!result.ok) throw new Error('SLOT_TAKEN')
+                    await saveBooking(
+                        {
+                            customerPhone: ctx.from,
+                            customerName: ctx.name ?? ctx.pushName ?? null,
+                            serviceId: serviceId ?? undefined,
+                            durationMin,
+                            priceChargedCents: priceCents ?? undefined,
+                            scheduledAt: when,
+                            day: when.toLocaleDateString('es-MX'),
+                            time: formatTime12h(when),
+                        },
+                        tenantId
+                    )
                 },
-                tenantId
+                { isolation: Prisma.TransactionIsolationLevel.Serializable }
             )
         } catch (err) {
+            if (err?.message === 'SLOT_TAKEN' || err?.code === 'P2034') {
+                return endFlow('Justo se ocupó ese horario. Escribe *agendar* de nuevo para elegir otro.')
+            }
             console.error('❌ No se pudo guardar la cita:', err)
             return endFlow('Tuvimos un problema guardando tu cita. Por favor intenta de nuevo en un momento, o contáctanos directo.')
         }
+
+        await saveConversationStep(tenantId, ctx.from, 'done', {})
 
         const confirmText = await getFlowMessage('BOOKING_CONFIRMED', 'Te esperamos.', tenantId)
         const serviceLine = serviceName ? `💈 Servicio: ${serviceName} — ${centsToText(priceCents)}` : null
@@ -315,7 +370,7 @@ const main = async () => {
     const adapterProvider = createProvider(MetaProvider, {
         jwtToken: tenant.metaAccessToken,
         numberId: tenant.metaPhoneNumberId,
-        verifyToken: process.env.META_VERIFY_TOKEN ?? 'barbersaas2026',
+        verifyToken: VERIFY_TOKEN,
         version: 'v25.0',
     })
 

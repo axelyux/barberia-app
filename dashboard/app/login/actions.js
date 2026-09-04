@@ -11,7 +11,7 @@ export async function login(prevState, formData) {
     const password = String(formData.get("password") ?? "");
     const rateLimitKey = `staff:${tenantSlug}:${username}`;
 
-    const { blocked, minutesLeft } = checkRateLimit(rateLimitKey);
+    const { blocked, minutesLeft } = await checkRateLimit(rateLimitKey);
     if (blocked) {
         return { error: `Demasiados intentos fallidos. Intenta de nuevo en ${minutesLeft} minuto(s).` };
     }
@@ -22,13 +22,13 @@ export async function login(prevState, formData) {
         where: { username, tenant: { slug: tenantSlug } },
         include: { tenant: true },
     });
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-        recordFailedAttempt(rateLimitKey);
+    if (!user || !user.active || !verifyPassword(password, user.passwordHash)) {
+        await recordFailedAttempt(rateLimitKey);
         return { error: "Barbería, usuario o contraseña incorrectos." };
     }
 
-    clearAttempts(rateLimitKey);
-    await createSession(user.id);
+    await clearAttempts(rateLimitKey);
+    await createSession(user.id, user.sessionVersion);
     redirect(`/t/${user.tenant.slug}`);
 }
 

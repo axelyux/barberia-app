@@ -2,16 +2,11 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/auth";
+import { requireTenantSession } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
+import { updateOwned, deleteOwned } from "@/lib/tenant-guard";
 
 const MODULES = ["CITAS", "SERVICIOS", "PRODUCTOS", "FINANZAS", "BOT", "SEGURIDAD"];
-
-async function tenantIdFromSlug(slug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) throw new Error("Barbería no encontrada");
-    return tenant.id;
-}
 
 async function savePermissions(staffUserId, permissions) {
     for (const moduleKey of MODULES) {
@@ -25,10 +20,9 @@ async function savePermissions(staffUserId, permissions) {
 }
 
 export async function createUser(slug, { name, username, password, role, permissions }) {
-    await requirePermission("SEGURIDAD", "add");
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "add");
     if (!name?.trim() || !username?.trim()) throw new Error("Nombre y usuario son obligatorios");
     if (!password || password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres");
-    const tenantId = await tenantIdFromSlug(slug);
 
     const user = await prisma.staffUser.create({
         data: {
@@ -44,24 +38,41 @@ export async function createUser(slug, { name, username, password, role, permiss
 }
 
 export async function updateUser(userId, slug, { name, username, password, role, permissions }) {
-    await requirePermission("SEGURIDAD", "edit");
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "edit");
     if (!name?.trim() || !username?.trim()) throw new Error("Nombre y usuario son obligatorios");
+    if (password && password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres");
 
-    await prisma.staffUser.update({
-        where: { id: userId },
-        data: {
-            name: name.trim(),
-            username: username.trim().toLowerCase(),
-            role,
-            ...(password ? { passwordHash: hashPassword(password) } : {}),
-        },
+    // Cambiar la contraseña invalida cualquier sesión ya emitida para esa cuenta
+    // (incrementa sessionVersion — ver getSessionUser en lib/auth.js).
+    await updateOwned("staffUser", userId, tenantId, {
+        name: name.trim(),
+        username: username.trim().toLowerCase(),
+        role,
+        ...(password ? { passwordHash: hashPassword(password), sessionVersion: { increment: 1 } } : {}),
     });
     await savePermissions(userId, permissions);
     revalidatePath(`/t/${slug}`);
 }
 
+// Desactiva la cuenta (no puede iniciar sesión ni mantener una sesión ya abierta) sin
+// borrar el registro — a diferencia de deleteUser, conserva el historial de quién hizo
+// qué en citas/ventas/gastos que referencian a este usuario.
+export async function deactivateUser(userId, slug) {
+    const { tenantId, user: actingUser } = await requireTenantSession(slug, "SEGURIDAD", "edit");
+    if (userId === actingUser.id) throw new Error("No puedes desactivar tu propia cuenta.");
+    await updateOwned("staffUser", userId, tenantId, { active: false, sessionVersion: { increment: 1 } });
+    revalidatePath(`/t/${slug}`);
+}
+
+export async function reactivateUser(userId, slug) {
+    const { tenantId } = await requireTenantSession(slug, "SEGURIDAD", "edit");
+    await updateOwned("staffUser", userId, tenantId, { active: true });
+    revalidatePath(`/t/${slug}`);
+}
+
 export async function deleteUser(userId, slug) {
-    await requirePermission("SEGURIDAD", "delete");
-    await prisma.staffUser.delete({ where: { id: userId } });
+    const { tenantId, user: actingUser } = await requireTenantSession(slug, "SEGURIDAD", "delete");
+    if (userId === actingUser.id) throw new Error("No puedes eliminar tu propia cuenta.");
+    await deleteOwned("staffUser", userId, tenantId, "Usuario no encontrado.");
     revalidatePath(`/t/${slug}`);
 }
