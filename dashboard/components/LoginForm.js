@@ -12,7 +12,7 @@ export default function LoginForm({ action = login, showTenantField = true }) {
     return (
         <form action={formAction} className="flex w-full max-w-xs flex-col gap-3">
             {showTenantField ? (
-                <Field label="Barbería (slug de tu URL)">
+                <Field label="Barbería">
                     <TextInput name="tenantSlug" type="text" required placeholder="sable-barber-studio" autoComplete="off" />
                 </Field>
             ) : null}
