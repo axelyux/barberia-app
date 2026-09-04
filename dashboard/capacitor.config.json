@@ -3,7 +3,7 @@
   "appName": "MiBarber",
   "webDir": "public",
   "server": {
-    "url": "https://tu-proyecto.vercel.app",
+    "url": "https://barberia-app-dashboard.vercel.app",
     "cleartext": false
   }
 }

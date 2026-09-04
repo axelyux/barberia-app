@@ -69,14 +69,35 @@ público de `webhook-router.js` (detrás de tu proxy/dominio del VPS), con el mi
 
 ### 4. Android (Capacitor)
 
-1. Antes de compilar, reemplaza `server.url` en `dashboard/capacitor.config.json` por
-   tu dominio real de Vercel.
-2. Desde `dashboard/`:
-   ```bash
-   npx cap sync android
-   cd android
-   ./gradlew bundleRelease   # genera el .aab para subir a Play Console
-   # o ./gradlew assembleRelease para un .apk de prueba
-   ```
-3. Un solo APK/AAB sirve para todas las barberías: el tenant se determina por la sesión
-   (login con slug + usuario + contraseña), no por el build.
+`dashboard/capacitor.config.json` ya apunta al dominio real de Vercel — es lo único que
+la app nativa necesita para cargar el panel (no hay backend aparte). Un solo APK/AAB
+sirve para todas las barberías: el tenant se determina por la sesión (login con
+barbería + usuario + contraseña), no por el build.
+
+**Cómo probar en un celular hoy mismo (APK de depuración, sin Play Store):**
+
+No hace falta Android Studio ni SDK local — `.github/workflows/android-build.yml` ya
+compila el APK en GitHub Actions (JDK 21) cada vez que cambia algo bajo `dashboard/`.
+
+1. Sube tus cambios a `main` (o dispara el workflow a mano: pestaña **Actions** →
+   "Compilar APK de Android" → **Run workflow**).
+2. Cuando termine la corrida, entra a esa corrida → sección **Artifacts** → descarga
+   **`barber-saas-debug-apk`** → descomprime → `app-debug.apk`.
+3. Pásalo al celular de prueba (por WhatsApp, Drive, USB, lo que sea) y ábrelo. Android
+   va a pedir activar "Instalar apps de orígenes desconocidos" la primera vez — es
+   normal para un APK que no viene de Play Store.
+
+Esta versión sirve para pilotos/pruebas reales con clientes, pero está firmada con una
+llave de depuración (no apta para publicar en Play Store).
+
+**Cuando quieras publicarla de verdad en Play Store**, falta una release firmada:
+
+1. Genera tu propio keystore (una sola vez, guárdalo — sin él no puedes actualizar la
+   app después): `keytool -genkey -v -keystore release.keystore -alias barbersaas -keyalg RSA -keysize 2048 -validity 10000`
+2. Agrega un bloque `signingConfigs` en `dashboard/android/app/build.gradle` que lo use,
+   y guarda la contraseña del keystore como secret en GitHub Actions (nunca en el repo).
+3. Genera el `.aab` con `./gradlew bundleRelease` (localmente o agregando un paso al
+   workflow) y súbelo a Play Console.
+4. Antes de publicar, revisa si quieres cambiar `appId` (`com.barbersaas.app`) o
+   `appName` (`MiBarber`) en `capacitor.config.json`/`android/app/build.gradle` —
+   el `appId` en particular **no se puede cambiar después** de la primera publicación.
