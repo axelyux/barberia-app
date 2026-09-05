@@ -28,7 +28,17 @@ function generateTempPassword() {
     return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
-export async function createTenant({ name, ownerName, planPriceCents, brandColor, logoUrl }) {
+// Fecha de vencimiento que viene del formulario (string "yyyy-mm-dd" de un <input
+// type="date">) — si no es una fecha válida, cae al default de 30 días desde hoy.
+function parseDueDate(nextDueDate) {
+    if (nextDueDate) {
+        const parsed = new Date(`${nextDueDate}T00:00:00`);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+}
+
+export async function createTenant({ name, ownerName, planPriceCents, brandColor, logoUrl, nextDueDate }) {
     await requireSuperAdmin();
     if (!name?.trim()) throw new Error("El nombre de la barbería es obligatorio");
 
@@ -44,7 +54,7 @@ export async function createTenant({ name, ownerName, planPriceCents, brandColor
             brandColor: brandColor || "#D9A441",
             logoUrl: logoUrl?.trim() || null,
             status: "ACTIVE",
-            nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            nextDueDate: parseDueDate(nextDueDate),
         },
     });
 
@@ -76,7 +86,7 @@ export async function createTenant({ name, ownerName, planPriceCents, brandColor
     return { slug, username: "admin", tempPassword };
 }
 
-export async function updateTenant(tenantId, { name, ownerName, planPriceCents, brandColor, logoUrl }) {
+export async function updateTenant(tenantId, { name, ownerName, planPriceCents, brandColor, logoUrl, nextDueDate }) {
     await requireSuperAdmin();
     if (!name?.trim()) throw new Error("El nombre de la barbería es obligatorio");
 
@@ -88,6 +98,7 @@ export async function updateTenant(tenantId, { name, ownerName, planPriceCents, 
             planPriceCents: Math.max(0, Math.round(planPriceCents) || 0),
             brandColor: brandColor || "#D9A441",
             logoUrl: logoUrl?.trim() || null,
+            ...(nextDueDate ? { nextDueDate: parseDueDate(nextDueDate) } : {}),
         },
     });
 

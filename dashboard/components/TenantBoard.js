@@ -26,6 +26,7 @@ import { IconToday, IconCatalog, IconSales, IconFinance, IconWorkers, IconBot, I
 import { money } from "@/lib/format";
 import { createService, updateService, deleteService } from "@/app/t/[slug]/catalog-actions";
 import { useHotkeys } from "@/lib/useHotkeys";
+import { getBillingNotice } from "@/lib/billing";
 import BotStatus from "@/components/BotStatus";
 
 // Cada pestaña puede agrupar varias secciones (se ven como bloques separados dentro de la pestaña,
@@ -113,22 +114,9 @@ export default function TenantBoard({
     const brandColor = tenant.brandColor;
     const salesPerms = { productos: perms.PRODUCTOS, servicios: perms.SERVICIOS };
 
-    // Aviso de vencimiento de plan: rojo si ya está vencido (PAST_DUE), amarillo si
-    // faltan 5 días o menos para vencer y sigue activo. Un tenant PAUSED nunca llega
-    // aquí (se corta desde page.js), así que ese estado no necesita aviso propio.
-    const daysUntilDue = tenant.nextDueDate ? Math.ceil((new Date(tenant.nextDueDate) - new Date()) / (24 * 60 * 60 * 1000)) : null;
-    const billingNotice =
-        tenant.status === "PAST_DUE"
-            ? { tone: "bad", text: "Tu plan con MiBarber está vencido. Regulariza tu pago para evitar que se pause el servicio." }
-            : tenant.status === "ACTIVE" && daysUntilDue !== null && daysUntilDue <= 5
-              ? {
-                    tone: "warn",
-                    text:
-                        daysUntilDue <= 0
-                            ? "Tu plan con MiBarber vence hoy."
-                            : `Tu plan con MiBarber vence en ${daysUntilDue} día${daysUntilDue === 1 ? "" : "s"}.`,
-                }
-              : null;
+    // Un tenant PAUSED nunca llega aquí (se corta desde page.js) — este aviso es solo
+    // para ACTIVE/PAST_DUE. Misma lógica que ve el dueño en la pantalla de login.
+    const billingNotice = getBillingNotice(tenant);
 
     return (
         <div className="mx-auto flex max-w-[430px] flex-col">

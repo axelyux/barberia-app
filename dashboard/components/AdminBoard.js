@@ -7,7 +7,7 @@ import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import Avatar from "@/components/Avatar";
 import { Field, TextInput, NumberInput, ColorPicker, ImagePicker } from "@/components/FormField";
-import { money, shortDate, TENANT_STATUS_META } from "@/lib/format";
+import { money, shortDate, toDateInputValue, TENANT_STATUS_META } from "@/lib/format";
 import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant } from "@/app/admin/actions";
 import { logoutAdmin } from "@/app/admin/login/actions";
 
@@ -18,7 +18,14 @@ const FILTERS = [
     { key: "bad", label: "Inactivas" },
 ];
 
-const emptyForm = { name: "", ownerName: "", planPrice: "200", brandColor: "#D9A441", logoUrl: "" };
+const emptyForm = {
+    name: "",
+    ownerName: "",
+    planPrice: "200",
+    brandColor: "#D9A441",
+    logoUrl: "",
+    nextDueDate: toDateInputValue(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+};
 
 function tenantToForm(t) {
     return {
@@ -27,6 +34,7 @@ function tenantToForm(t) {
         planPrice: String(t.planPriceCents / 100),
         brandColor: t.brandColor,
         logoUrl: t.logoUrl ?? "",
+        nextDueDate: t.nextDueDate ? toDateInputValue(t.nextDueDate) : "",
     };
 }
 
@@ -55,6 +63,14 @@ function TenantFormFields({ form, setForm }) {
                     step="10"
                 />
             </Field>
+            <Field label="Fecha de vencimiento del plan">
+                <input
+                    type="date"
+                    value={form.nextDueDate}
+                    onChange={(e) => setForm((f) => ({ ...f, nextDueDate: e.target.value }))}
+                    className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+                />
+            </Field>
             <Field label="Logo (opcional)">
                 <ImagePicker value={form.logoUrl} onChange={(v) => setForm((f) => ({ ...f, logoUrl: v }))} />
             </Field>
@@ -76,12 +92,6 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
                 <span className="text-zinc-400">WhatsApp</span>
                 <span className="font-numeric font-semibold text-zinc-100">{tenant.whatsappNumber ?? "Pendiente de vincular"}</span>
             </div>
-            <div className="flex items-center justify-between py-2.5 text-[13.5px]">
-                <span className="text-zinc-400">{tenant.status === "PAUSED" ? "Venció" : "Renovación"}</span>
-                <span className="font-numeric font-semibold text-zinc-100">
-                    {tenant.nextDueDate ? shortDate(tenant.nextDueDate) : "—"}
-                </span>
-            </div>
 
             {error ? <p className="mb-2 text-sm text-red-400">{error}</p> : null}
 
@@ -96,6 +106,7 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
                             planPriceCents: Math.round(parseFloat(form.planPrice || "0") * 100),
                             brandColor: form.brandColor,
                             logoUrl: form.logoUrl,
+                            nextDueDate: form.nextDueDate || null,
                         })
                     }
                 >
@@ -235,6 +246,9 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                 <div className="flex flex-col gap-2.5">
                     {visibleTenants.map((t) => {
                         const meta = TENANT_STATUS_META[t.status];
+                        const daysLeft = t.nextDueDate
+                            ? Math.ceil((new Date(t.nextDueDate) - new Date()) / (24 * 60 * 60 * 1000))
+                            : null;
                         return (
                             <div key={t.id} className="rounded-md border border-white/10 bg-zinc-900 p-3.5">
                                 <button onClick={() => setSelectedId(t.id)} className="flex w-full items-start gap-3 text-left">
@@ -256,6 +270,12 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                                 <b className="font-numeric font-semibold text-zinc-100">
                                                     {t.nextDueDate ? shortDate(t.nextDueDate) : "—"}
                                                 </b>
+                                                {t.status !== "PAUSED" && daysLeft !== null ? (
+                                                    <span className={daysLeft <= 2 ? "text-red-400" : daysLeft <= 7 ? "text-orange-400" : "text-zinc-500"}>
+                                                        {" "}
+                                                        ({daysLeft <= 0 ? "vence hoy" : `${daysLeft}d`})
+                                                    </span>
+                                                ) : null}
                                             </span>
                                             {!t.whatsappNumber ? <span className="text-orange-400">Pendiente de vincular</span> : null}
                                         </div>
@@ -339,6 +359,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                         planPriceCents: Math.round(parseFloat(createForm.planPrice || "0") * 100),
                                         brandColor: createForm.brandColor,
                                         logoUrl: createForm.logoUrl,
+                                        nextDueDate: createForm.nextDueDate || null,
                                     }),
                                 { onSuccess: (result) => result && setNewCredentials(result) }
                             )

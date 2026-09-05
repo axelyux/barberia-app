@@ -52,7 +52,8 @@ export async function getTenantBrand(slug) {
     if (!tenantSlug) return null;
     const tenant = await prisma.tenant.findUnique({
         where: { slug: tenantSlug },
-        select: { name: true, brandColor: true, logoUrl: true },
+        select: { name: true, brandColor: true, logoUrl: true, status: true, nextDueDate: true },
     });
+    if (tenant?.nextDueDate) tenant.nextDueDate = tenant.nextDueDate.toISOString();
     return tenant;
 }
