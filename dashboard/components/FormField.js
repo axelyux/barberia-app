@@ -1,12 +1,12 @@
 "use client";
 
 const inputClass =
-    "min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 placeholder:text-zinc-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
+    "min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors placeholder:text-zinc-500 focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25";
 
 export function Field({ label, children }) {
     return (
         <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-zinc-400">{label}</span>
+            <span className="text-[11.5px] font-semibold uppercase tracking-wide text-zinc-500">{label}</span>
             {children}
         </label>
     );

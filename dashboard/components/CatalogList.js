@@ -151,7 +151,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">{title}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">{title}</p>
                 {perms.canAdd ? (
                     <button
                         onClick={() => {
@@ -166,35 +166,40 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                 ) : null}
             </div>
 
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
-                {items.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => {
-                            setError("");
-                            setEditingId(item.id);
-                        }}
-                        className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
-                    >
-                        <div className="min-w-0">
-                            <p className={`truncate text-sm font-bold ${item.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>
-                                {item.name}
-                                {lowStockCheck?.(item) ? (
-                                    <span className="ml-1.5 rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-400">
-                                        stock bajo
-                                    </span>
-                                ) : null}
-                            </p>
-                            <p className="text-xs text-zinc-400">
-                                {item[extra.key]} {extra.suffix}
-                                {!item.active ? " · inactivo" : ""}
-                            </p>
-                        </div>
-                        <span className="font-numeric shrink-0 font-bold text-zinc-100">{money(item.priceCents)}</span>
-                    </button>
-                ))}
-                {items.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">{emptyLabel}</p> : null}
-            </div>
+            {items.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    {emptyLabel}
+                </div>
+            ) : (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                    {items.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                setError("");
+                                setEditingId(item.id);
+                            }}
+                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                        >
+                            <div className="min-w-0">
+                                <p className={`truncate text-sm font-bold ${item.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>
+                                    {item.name}
+                                    {lowStockCheck?.(item) ? (
+                                        <span className="ml-1.5 rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-400">
+                                            stock bajo
+                                        </span>
+                                    ) : null}
+                                </p>
+                                <p className="text-xs text-zinc-400">
+                                    {item[extra.key]} {extra.suffix}
+                                    {!item.active ? " · inactivo" : ""}
+                                </p>
+                            </div>
+                            <span className="font-numeric shrink-0 font-bold text-zinc-100">{money(item.priceCents)}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {perms.canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title={`Agregar ${title.toLowerCase()}`}>

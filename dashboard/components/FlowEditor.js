@@ -14,7 +14,7 @@ const STEPS = [
 
 function Bubble({ value, onChange, disabled }) {
     return (
-        <div className="rounded-md bg-[#0b141a] p-3">
+        <div className="rounded-xl bg-[#0b141a] p-3.5 shadow-[var(--shadow-panel)]">
             <div className="relative ml-0 mr-auto max-w-[92%] rounded-lg rounded-tl-none bg-[#202c33] px-3 py-2 shadow">
                 <span className="absolute -left-[7px] top-0 h-0 w-0 border-y-[7px] border-r-[8px] border-y-transparent border-r-[#202c33]" />
                 <textarea
@@ -52,21 +52,21 @@ export default function FlowEditor({ initialMessages, brandColor, slug, perms })
 
     return (
         <div>
-            <p className="mb-1 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Mensajes del bot</p>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Mensajes del bot</p>
             <p className="mb-3 text-xs text-zinc-500">
                 Así le contesta tu bot a los clientes en cada paso. Edita directo sobre la burbuja.
             </p>
 
-            <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5">
-                <p className="text-xs text-amber-200/90">
+            <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                <p className="text-xs leading-relaxed text-amber-200/90">
                     <b>No enumeres opciones con números.</b> El menú, los servicios y los horarios se envían como
                     botones y listas que el cliente toca — si escribes “responde 1, 2 o 3” lo vas a confundir.
                 </p>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
                 {STEPS.map((step) => (
-                    <div key={step.key} className="rounded-md border border-zinc-800 bg-zinc-900 p-2.5">
+                    <div key={step.key} className="rounded-xl border border-zinc-800 bg-zinc-900 p-2.5 shadow-[var(--shadow-panel)]">
                         <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">{step.label}</p>
                         <Bubble
                             value={messages[step.key] ?? ""}
@@ -84,7 +84,7 @@ export default function FlowEditor({ initialMessages, brandColor, slug, perms })
                         onClick={save}
                         disabled={isPending}
                         style={{ background: brandColor }}
-                        className="mt-3 flex min-h-11 w-full items-center justify-center rounded-md text-sm font-bold text-zinc-950 disabled:opacity-50"
+                        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg text-sm font-bold tracking-tight text-zinc-950 disabled:opacity-50"
                     >
                         {isPending ? "Guardando…" : "Guardar mensajes"}
                     </button>

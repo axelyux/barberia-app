@@ -103,6 +103,16 @@ export function IconCustomers(props) {
     );
 }
 
+export function IconMore(props) {
+    return (
+        <svg viewBox="0 0 24 24" width="20" height="20" {...common} strokeWidth="0" fill="currentColor" {...props}>
+            <circle cx="5" cy="12" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="19" cy="12" r="1.8" />
+        </svg>
+    );
+}
+
 export function IconSettings(props) {
     return (
         <svg viewBox="0 0 24 24" width="20" height="20" {...common} {...props}>

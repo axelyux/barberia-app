@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import Badge from "@/components/Badge";
 import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
@@ -170,9 +171,12 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
     return (
         <div className="mx-auto flex max-w-[430px] flex-col gap-5 px-4 pb-16 pt-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <p className="text-xs text-zinc-500">Hola, {adminName}</p>
-                    <h1 className="text-[19px] font-bold text-zinc-50">Panel Admin</h1>
+                <div className="flex items-center gap-3">
+                    <Image src="/logo-mibarber.png" alt="" width={36} height={36} className="rounded-lg" />
+                    <div>
+                        <p className="text-xs text-zinc-500">Hola, {adminName}</p>
+                        <h1 className="text-[19px] font-bold text-zinc-50">Panel Admin</h1>
+                    </div>
                 </div>
                 <button
                     onClick={() => logoutAdmin()}

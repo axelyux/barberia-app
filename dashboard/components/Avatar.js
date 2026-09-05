@@ -18,14 +18,14 @@ export default function Avatar({ name, logoUrl, color, size = 40, square = false
                 width={size}
                 height={size}
                 style={{ width: dimension, height: dimension }}
-                className={`shrink-0 border border-zinc-800 object-cover ${shape}`}
+                className={`shrink-0 border border-zinc-800 object-cover shadow-sm ${shape}`}
             />
         );
     }
     return (
         <div
             style={{ width: dimension, height: dimension, background: `${color}26`, color, border: `1px solid ${color}40` }}
-            className={`flex shrink-0 items-center justify-center text-sm font-bold ${shape}`}
+            className={`flex shrink-0 items-center justify-center text-sm font-bold tracking-tight ${shape}`}
         >
             {initials(name) || "?"}
         </div>

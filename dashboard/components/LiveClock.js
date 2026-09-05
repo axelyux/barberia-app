@@ -25,9 +25,9 @@ export default function LiveClock() {
 
     return (
         <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Hora del sistema</p>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
-                <p className="font-numeric text-[28px] font-bold text-zinc-50">{time}</p>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Hora del sistema</p>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+                <p className="font-numeric text-[28px] font-bold tracking-tight text-zinc-50">{time}</p>
                 <p className="mt-1 text-xs text-zinc-500">{dateCap} · Ciudad de México (America/Mexico_City)</p>
             </div>
         </div>

@@ -89,7 +89,7 @@ export default function ShiftTypesEditor({ shiftTypes, slug, brandColor, perms }
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Tipos de turno</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Tipos de turno</p>
                 {perms.canAdd ? (
                     <button
                         onClick={() => {
@@ -97,30 +97,33 @@ export default function ShiftTypesEditor({ shiftTypes, slug, brandColor, perms }
                             setCreateOpen(true);
                         }}
                         style={brandStyle}
-                        className="flex h-8 items-center gap-1 rounded-md px-3 text-xs font-bold"
+                        className="flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-bold"
                     >
                         + Agregar
                     </button>
                 ) : null}
             </div>
 
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
-                {shiftTypes.map((t) => (
-                    <button
-                        key={t.id}
-                        onClick={() => {
-                            setError("");
-                            setEditingId(t.id);
-                        }}
-                        className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
-                    >
-                        <p className={`text-sm font-bold ${t.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{t.name}</p>
-                    </button>
-                ))}
-                {shiftTypes.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-zinc-500">Sin turnos configurados (ej. Mañana, Tarde, Día completo).</p>
-                ) : null}
-            </div>
+            {shiftTypes.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    Sin turnos configurados (ej. Mañana, Tarde, Día completo).
+                </p>
+            ) : (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                    {shiftTypes.map((t) => (
+                        <button
+                            key={t.id}
+                            onClick={() => {
+                                setError("");
+                                setEditingId(t.id);
+                            }}
+                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                        >
+                            <p className={`text-sm font-bold ${t.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{t.name}</p>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {perms.canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Agregar turno">

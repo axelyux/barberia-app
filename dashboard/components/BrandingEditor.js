@@ -28,9 +28,9 @@ export default function BrandingEditor({ tenant, perms }) {
 
     return (
         <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Tu marca</p>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
-                <div className="mb-3.5 flex items-center gap-3">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Tu marca</p>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+                <div className="mb-4 flex items-center gap-3">
                     <Avatar name={form.name || tenant.name} logoUrl={form.logoUrl} color={form.brandColor} size={48} square />
                     <p className="text-xs text-zinc-400">Así se ve tu ícono en el panel de administración.</p>
                 </div>
@@ -51,7 +51,7 @@ export default function BrandingEditor({ tenant, perms }) {
                 {saved && !isPending ? <p className="mt-3 text-sm text-emerald-400">Guardado.</p> : null}
 
                 {perms.canEdit ? (
-                    <div className="mt-3.5">
+                    <div className="mt-4">
                         <SheetButton
                             variant="brand"
                             style={{ background: form.brandColor, color: contrastText(form.brandColor) }}

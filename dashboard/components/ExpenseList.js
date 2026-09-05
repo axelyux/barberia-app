@@ -19,7 +19,7 @@ function PaymentMethodSelect({ value, onChange, disabled }) {
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none disabled:opacity-50"
+            className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
         >
             {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>
@@ -37,7 +37,7 @@ function CategorySelect({ value, onChange, disabled }) {
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+            className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
         >
             {Object.entries(EXPENSE_CATEGORY_META).map(([key, meta]) => (
                 <option key={key} value={key}>
@@ -51,7 +51,7 @@ function CategorySelect({ value, onChange, disabled }) {
 function VendorFields({ vendor, receiptNumber, isRecurring, paidByName, onVendor, onReceiptNumber, onIsRecurring, onPaidByName, disabled }) {
     return (
         <>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
                 <Field label="Proveedor (opcional)">
                     <TextInput disabled={disabled} value={vendor} onChange={(e) => onVendor(e.target.value)} placeholder="Ej. CFE" />
                 </Field>
@@ -85,7 +85,7 @@ function ProductPurchaseFields({ products, productId, quantity, onProductId, onQ
                     value={productId}
                     onChange={(e) => onProductId(e.target.value)}
                     disabled={disabled}
-                    className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                    className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <option value="">No, es un gasto normal</option>
                     {products.map((p) => (
@@ -114,7 +114,7 @@ function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onC
 
     return (
         <>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
                 <ProductPurchaseFields
                     products={products}
                     productId={form.productId}
@@ -156,12 +156,12 @@ function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onC
                         type="datetime-local"
                         value={when}
                         onChange={(e) => setWhen(e.target.value)}
-                        className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                     />
                 </Field>
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
-            <div className="mt-4 flex flex-col gap-2">
+            <div className="mt-4 flex flex-col gap-2.5">
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
@@ -207,7 +207,7 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
 
     return (
         <>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
                 <ProductPurchaseFields
                     products={products}
                     productId={productId}
@@ -245,13 +245,13 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
                         disabled={!canEdit}
                         value={when}
                         onChange={(e) => setWhen(e.target.value)}
-                        className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none disabled:opacity-50"
+                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                 </Field>
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
             {canEdit || canDelete ? (
-                <div className="mt-4 flex flex-col gap-2">
+                <div className="mt-4 flex flex-col gap-2.5">
                     {canEdit ? (
                         <SheetButton
                             variant="brand"
@@ -329,8 +329,8 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
 
     return (
         <div>
-            <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Gastos</p>
+            <div className="mb-2.5 flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Gastos</p>
                 {perms.canAdd ? (
                     <button
                         onClick={() => {
@@ -338,14 +338,14 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                             setCreateOpen(true);
                         }}
                         style={brandStyle}
-                        className="flex h-8 items-center gap-1 rounded-md px-3 text-xs font-bold"
+                        className="flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-bold transition-transform active:scale-95"
                     >
                         + Agregar
                     </button>
                 ) : null}
             </div>
             <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} onExport={exportCSV} isPending={isPending} />
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                 {expenses.map((e) => (
                     <button
                         key={e.id}
@@ -353,7 +353,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                             setError("");
                             setEditingId(e.id);
                         }}
-                        className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-2.5 text-left text-sm last:border-b-0"
+                        className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-zinc-800/30 active:bg-zinc-800/40"
                     >
                         <div className="min-w-0">
                             <p className="truncate font-semibold text-zinc-100">
@@ -371,7 +371,11 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                         <span className="font-numeric shrink-0 font-bold text-red-400">-{money(e.amountCents)}</span>
                     </button>
                 ))}
-                {expenses.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">Sin gastos registrados.</p> : null}
+                {expenses.length === 0 ? (
+                    <div className="my-3 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                        Sin gastos registrados.
+                    </div>
+                ) : null}
             </div>
 
             {perms.canAdd ? (

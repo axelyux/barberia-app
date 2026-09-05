@@ -44,35 +44,34 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
 
     return (
         <div>
-            <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Horario de atención</p>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
-                <p className="mb-3 text-xs text-zinc-500">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Horario de atención</p>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+                <p className="mb-3.5 text-xs text-zinc-500">
                     El bot avisa automáticamente si te escriben fuera de estas horas.
                 </p>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col divide-y divide-zinc-800/80">
                     {days.map((d) => (
-                        <div key={d.weekday} className="flex flex-col gap-1.5 border-b border-zinc-800 pb-3 last:border-b-0 last:pb-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="text-[12.5px] font-semibold text-zinc-300">{DAY_LABELS[d.weekday]}</span>
-                                <label className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-zinc-400">
-                                    <input
-                                        type="checkbox"
-                                        disabled={!perms.canEdit}
-                                        checked={!d.isClosed}
-                                        onChange={(e) => update(d.weekday, { isClosed: !e.target.checked })}
-                                        className="h-4 w-4 rounded-sm border-zinc-600 bg-zinc-800"
-                                    />
-                                    Abierto
-                                </label>
-                            </div>
+                        <div key={d.weekday} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                            <label className="flex w-[92px] shrink-0 items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    disabled={!perms.canEdit}
+                                    checked={!d.isClosed}
+                                    onChange={(e) => update(d.weekday, { isClosed: !e.target.checked })}
+                                    className="h-4 w-4 rounded-sm border-zinc-600 bg-zinc-800"
+                                />
+                                <span className={`text-[13px] font-semibold ${d.isClosed ? "text-zinc-500" : "text-zinc-200"}`}>
+                                    {DAY_LABELS[d.weekday]}
+                                </span>
+                            </label>
                             {!d.isClosed ? (
-                                <div className="flex min-w-0 items-center gap-1.5">
+                                <div className="flex min-w-0 flex-1 items-center gap-1.5">
                                     <input
                                         type="time"
                                         disabled={!perms.canEdit}
                                         value={minToHHMM(d.openMin)}
                                         onChange={(e) => update(d.weekday, { openMin: hhmmToMin(e.target.value) })}
-                                        className="h-9 w-0 min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800/60 px-1.5 text-[12.5px] text-zinc-50"
+                                        className="h-9 w-0 min-w-0 flex-1 rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-1.5 text-[12.5px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] focus:border-amber-500/70 focus:outline-none"
                                     />
                                     <span className="shrink-0 text-zinc-600">–</span>
                                     <input
@@ -80,23 +79,23 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                                         disabled={!perms.canEdit}
                                         value={minToHHMM(d.closeMin)}
                                         onChange={(e) => update(d.weekday, { closeMin: hhmmToMin(e.target.value) })}
-                                        className="h-9 w-0 min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800/60 px-1.5 text-[12.5px] text-zinc-50"
+                                        className="h-9 w-0 min-w-0 flex-1 rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-1.5 text-[12.5px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] focus:border-amber-500/70 focus:outline-none"
                                     />
                                 </div>
                             ) : (
-                                <span className="text-[12.5px] text-zinc-600">Cerrado</span>
+                                <span className="flex-1 text-right text-[12.5px] text-zinc-600">Cerrado</span>
                             )}
                         </div>
                     ))}
                 </div>
 
-                <div className="mt-3.5 border-t border-zinc-800 pt-3.5">
+                <div className="mt-4 border-t border-zinc-800 pt-4">
                     <label className="flex flex-col gap-1.5">
-                        <span className="text-[12.5px] font-semibold text-zinc-300">Anticipación mínima para agendar</span>
+                        <span className="text-[11.5px] font-semibold uppercase tracking-wide text-zinc-500">Anticipación mínima para agendar</span>
                         <span className="text-xs text-zinc-500">
                             El bot no aceptará citas con menos de estos minutos de anticipación (evita que agenden “para ya mismo”).
                         </span>
-                        <div className="mt-1 flex items-center gap-2">
+                        <div className="mt-1.5 flex items-center gap-2">
                             <input
                                 type="number"
                                 min="0"
@@ -105,7 +104,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                                 disabled={!perms.canEdit}
                                 value={minNotice}
                                 onChange={(e) => setMinNotice(e.target.value)}
-                                className="h-9 w-24 rounded-md border border-zinc-700 bg-zinc-800/60 px-2.5 text-[12.5px] text-zinc-50"
+                                className="font-numeric h-9 w-24 rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-2.5 text-[12.5px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] focus:border-amber-500/70 focus:outline-none"
                             />
                             <span className="text-[12.5px] text-zinc-400">minutos</span>
                         </div>
@@ -116,7 +115,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                 {saved && !isPending ? <p className="mt-3 text-sm text-emerald-400">Guardado.</p> : null}
 
                 {perms.canEdit ? (
-                    <div className="mt-3.5">
+                    <div className="mt-4">
                         <SheetButton
                             variant="brand"
                             style={{ background: tenant.brandColor, color: contrastText(tenant.brandColor) }}

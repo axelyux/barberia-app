@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Avatar from "@/components/Avatar";
+import BottomSheet from "@/components/BottomSheet";
 import LogoutButton from "@/components/LogoutButton";
 import BookingsPanel from "@/components/BookingsPanel";
 import CatalogList from "@/components/CatalogList";
@@ -21,7 +22,7 @@ import OnboardingChecklist from "@/components/OnboardingChecklist";
 import CashShiftPanel from "@/components/CashShiftPanel";
 import ShiftTypesEditor from "@/components/ShiftTypesEditor";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
-import { IconToday, IconCatalog, IconSales, IconFinance, IconWorkers, IconBot, IconSettings } from "@/components/TabIcons";
+import { IconToday, IconCatalog, IconSales, IconFinance, IconWorkers, IconBot, IconSettings, IconMore } from "@/components/TabIcons";
 import { money } from "@/lib/format";
 import { createService, updateService, deleteService } from "@/app/t/[slug]/catalog-actions";
 
@@ -63,6 +64,16 @@ export default function TenantBoard({
     const activeTab = allowedTabs.some((t) => t.key === tab) ? tab : allowedTabs[0]?.key;
     const [cajaSubTab, setCajaSubTab] = useState("ventas");
 
+    // La navegación inferior solo tiene espacio cómodo para ~5 pestañas en un celular
+    // angosto — con más, en vez de amontonarlas se agrupan las que sobran detrás de un
+    // botón "Más" que abre una hoja con el resto (mismo patrón que apps como Instagram).
+    const MAX_VISIBLE_TABS = 5;
+    const hasOverflow = allowedTabs.length > MAX_VISIBLE_TABS;
+    const visibleTabs = hasOverflow ? allowedTabs.slice(0, MAX_VISIBLE_TABS - 1) : allowedTabs;
+    const overflowTabs = hasOverflow ? allowedTabs.slice(MAX_VISIBLE_TABS - 1) : [];
+    const isOverflowActive = overflowTabs.some((t) => t.key === activeTab);
+    const [moreOpen, setMoreOpen] = useState(false);
+
     const completedToday = bookings.filter((b) => b.status === "COMPLETED");
     const servicesRevenue = completedToday.reduce((sum, b) => sum + (b.amountPaidCents ?? 0), 0);
     const todayKey = new Date().toDateString();
@@ -88,7 +99,7 @@ export default function TenantBoard({
                     <Avatar name={tenant.name} logoUrl={tenant.logoUrl} color={brandColor} size={40} square />
                     <div>
                         <p className="text-xs text-zinc-500">{todayLabel}</p>
-                        <h1 className="text-[17px] font-bold text-zinc-50">{tenant.name}</h1>
+                        <h1 className="text-[17px] font-bold tracking-tight text-zinc-50">{tenant.name}</h1>
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
@@ -118,13 +129,13 @@ export default function TenantBoard({
                         />
 
                         <div className="grid grid-cols-2 gap-2.5">
-                            <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
                                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Citas hoy</p>
                                 <p className="font-numeric mt-2 text-[34px] font-bold" style={{ color: brandColor }}>
                                     {bookings.length}
                                 </p>
                             </div>
-                            <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
                                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos de hoy</p>
                                 <p className="font-numeric mt-2 text-[22px] font-bold text-zinc-50">
                                     {money(servicesRevenue + salesRevenue)}
@@ -285,23 +296,57 @@ export default function TenantBoard({
             </div>
 
             <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur">
-                <div className="mx-auto flex max-w-[430px] justify-around gap-0.5 overflow-x-auto px-1 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {allowedTabs.map(({ key, label, Icon }) => {
+                <div className="mx-auto flex max-w-[430px] justify-around gap-0.5 px-1 py-1.5">
+                    {visibleTabs.map(({ key, label, Icon }) => {
                         const active = activeTab === key;
                         return (
                             <button
                                 key={key}
                                 onClick={() => setTab(key)}
-                                className="flex min-h-11 min-w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-1"
+                                className="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1"
                                 style={{ color: active ? brandColor : "#71717a" }}
                             >
                                 <Icon />
-                                <span className="text-[10px] font-semibold leading-tight">{label}</span>
+                                <span className="truncate text-[10px] font-semibold leading-tight">{label}</span>
                             </button>
                         );
                     })}
+                    {hasOverflow ? (
+                        <button
+                            onClick={() => setMoreOpen(true)}
+                            className="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1"
+                            style={{ color: isOverflowActive ? brandColor : "#71717a" }}
+                        >
+                            <IconMore />
+                            <span className="truncate text-[10px] font-semibold leading-tight">Más</span>
+                        </button>
+                    ) : null}
                 </div>
             </nav>
+
+            {hasOverflow ? (
+                <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Más">
+                    <div className="flex flex-col gap-1">
+                        {overflowTabs.map(({ key, label, Icon }) => {
+                            const active = activeTab === key;
+                            return (
+                                <button
+                                    key={key}
+                                    onClick={() => {
+                                        setTab(key);
+                                        setMoreOpen(false);
+                                    }}
+                                    className="flex min-h-12 items-center gap-3 rounded-lg px-3 text-left text-[15px] font-semibold"
+                                    style={{ color: active ? brandColor : "#e4e4e7", background: active ? `${brandColor}14` : "transparent" }}
+                                >
+                                    <Icon />
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </BottomSheet>
+            ) : null}
         </div>
     );
 }

@@ -46,24 +46,24 @@ function PermissionMatrix({ permissions, setPermissions }) {
         setPermissions((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], [actionKey]: !p[moduleKey][actionKey] } }));
 
     return (
-        <div className="overflow-x-auto rounded-md border border-zinc-800">
-            <table className="w-full text-left text-[12.5px]">
+        <div className="overflow-x-auto rounded-xl border border-zinc-800 shadow-[var(--shadow-panel)]">
+            <table className="w-full border-collapse text-left text-[12.5px]">
                 <thead>
-                    <tr className="border-b border-zinc-800 bg-zinc-800/40">
-                        <th className="px-2.5 py-2 font-semibold text-zinc-400">Módulo</th>
+                    <tr className="border-b border-zinc-800 bg-zinc-800/50">
+                        <th className="px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">Módulo</th>
                         {ACTIONS.map((a) => (
-                            <th key={a.key} className="px-2 py-2 text-center font-semibold text-zinc-400">
+                            <th key={a.key} className="border-l border-zinc-800/80 px-2 py-2.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">
                                 {a.label}
                             </th>
                         ))}
                     </tr>
                 </thead>
                 <tbody>
-                    {MODULES.map((m) => (
-                        <tr key={m.key} className="border-b border-zinc-800 last:border-b-0">
-                            <td className="px-2.5 py-2 font-semibold text-zinc-200">{m.label}</td>
+                    {MODULES.map((m, i) => (
+                        <tr key={m.key} className={`border-b border-zinc-800 last:border-b-0 ${i % 2 === 1 ? "bg-zinc-800/20" : ""}`}>
+                            <td className="px-3 py-2.5 font-semibold text-zinc-200">{m.label}</td>
                             {ACTIONS.map((a) => (
-                                <td key={a.key} className="px-2 py-2 text-center">
+                                <td key={a.key} className="border-l border-zinc-800/80 px-2 py-2.5 text-center">
                                     <input
                                         type="checkbox"
                                         checked={permissions[m.key][a.key]}
@@ -107,7 +107,7 @@ function UserForm({ initial, requirePassword, brandStyle, isPending, error, onSa
                                 type="button"
                                 onClick={() => setRole(r)}
                                 aria-pressed={role === r}
-                                className={`flex h-9 flex-1 items-center justify-center rounded-md border text-sm font-semibold ${role === r ? "border-zinc-500 bg-zinc-800 text-zinc-50" : "border-zinc-800 bg-zinc-900 text-zinc-500"
+                                className={`flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${role === r ? "border-zinc-500 bg-zinc-800 text-zinc-50" : "border-zinc-800 bg-zinc-900 text-zinc-500"
                                     }`}
                             >
                                 {r === "ADMIN" ? "Admin" : "Usuario"}
@@ -167,38 +167,43 @@ export default function UsersEditor({ users, slug, brandColor, perms }) {
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Usuarios y permisos</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Usuarios y permisos</p>
                 {perms.canAdd ? (
-                    <button onClick={() => setCreateOpen(true)} style={brandStyle} className="flex h-8 items-center gap-1 rounded-md px-3 text-xs font-bold">
+                    <button onClick={() => setCreateOpen(true)} style={brandStyle} className="flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-bold">
                         + Agregar
                     </button>
                 ) : null}
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
-                {users.map((u) => (
-                    <button
-                        key={u.id}
-                        onClick={() => {
-                            if (!perms.canEdit) return;
-                            setError("");
-                            setEditingId(u.id);
-                        }}
-                        className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0 disabled:opacity-60"
-                        disabled={!perms.canEdit}
-                    >
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-zinc-50">
-                                {u.name} {u.active === false ? <span className="text-xs font-normal text-red-400">(inactivo)</span> : null}
-                            </p>
-                            <p className="truncate text-xs text-zinc-400">@{u.username}</p>
-                        </div>
-                        <span className="shrink-0 rounded-md border border-zinc-700 px-2 py-0.5 text-[10.5px] font-bold uppercase text-zinc-400">
-                            {u.role === "ADMIN" ? "Admin" : "Usuario"}
-                        </span>
-                    </button>
-                ))}
-                {users.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">Todavía no agregas usuarios.</p> : null}
-            </div>
+            {users.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    Todavía no agregas usuarios.
+                </p>
+            ) : (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                    {users.map((u) => (
+                        <button
+                            key={u.id}
+                            onClick={() => {
+                                if (!perms.canEdit) return;
+                                setError("");
+                                setEditingId(u.id);
+                            }}
+                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0 disabled:opacity-60"
+                            disabled={!perms.canEdit}
+                        >
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-bold text-zinc-50">
+                                    {u.name} {u.active === false ? <span className="text-xs font-normal text-red-400">(inactivo)</span> : null}
+                                </p>
+                                <p className="truncate text-xs text-zinc-400">@{u.username}</p>
+                            </div>
+                            <span className="shrink-0 rounded-md border border-zinc-700 px-2 py-0.5 text-[10.5px] font-bold uppercase text-zinc-400">
+                                {u.role === "ADMIN" ? "Admin" : "Usuario"}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Nuevo usuario">
                 {createOpen ? (

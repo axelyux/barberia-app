@@ -6,17 +6,17 @@ export default function FinancePanel({ finance }) {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">Ingresos 30d</p>
+            <div className="grid grid-cols-3 gap-2.5">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos 30d</p>
                     <p className="font-numeric mt-1.5 text-[16px] font-bold text-emerald-400">{money(finance.revenue30)}</p>
                 </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">Gastos 30d</p>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Gastos 30d</p>
                     <p className="font-numeric mt-1.5 text-[16px] font-bold text-red-400">{money(finance.expense30)}</p>
                 </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">Utilidad 30d</p>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Utilidad 30d</p>
                     <p className={`font-numeric mt-1.5 text-[16px] font-bold ${profitGood ? "text-zinc-50" : "text-red-400"}`}>
                         {money(finance.profit30)}
                     </p>
@@ -24,8 +24,8 @@ export default function FinancePanel({ finance }) {
             </div>
 
             {finance.pendingCents > 0 ? (
-                <div className="rounded-md border border-orange-500/30 bg-orange-500/10 p-3.5">
-                    <p className="text-[12px] font-bold uppercase tracking-wide text-orange-400">Pendiente de cobro</p>
+                <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3.5 shadow-[var(--shadow-panel)]">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-orange-400">Pendiente de cobro</p>
                     <p className="font-numeric mt-1 text-[20px] font-bold text-orange-300">{money(finance.pendingCents)}</p>
                     <p className="mt-0.5 text-[12.5px] text-orange-200/80">De ventas y citas marcadas como parcial o no pagadas.</p>
                 </div>
@@ -36,8 +36,8 @@ export default function FinancePanel({ finance }) {
             <CategoryBreakdown categoryTotals={finance.categoryTotals} />
 
             {finance.barberBreakdown.length > 0 ? (
-                <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
-                    <p className="pt-3.5 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Comisiones por barbero · 30 días</p>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                    <p className="pt-3.5 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Comisiones por barbero · 30 días</p>
                     {finance.barberBreakdown.map((b) => (
                         <div key={b.id} className="flex items-center justify-between border-b border-zinc-800 py-2.5 text-sm last:border-b-0">
                             <div>

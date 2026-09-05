@@ -34,32 +34,37 @@ export default function IgnoredContactsEditor({ contacts, slug, brandColor, perm
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Contactos que el bot ignora</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Contactos que el bot ignora</p>
                 {perms.canAdd ? (
-                    <button onClick={() => setOpen(true)} style={brandStyle} className="flex h-8 items-center gap-1 rounded-md px-3 text-xs font-bold">
+                    <button onClick={() => setOpen(true)} style={brandStyle} className="flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-bold">
                         + Agregar
                     </button>
                 ) : null}
             </div>
-            <p className="mb-2 text-xs text-zinc-500">
+            <p className="mb-2.5 text-xs text-zinc-500">
                 Útil si usas tu número personal: agrega aquí a tus contactos guardados (familia, amigos) para que el bot nunca les conteste — solo a tus clientes.
             </p>
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
-                {contacts.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between gap-2 border-b border-zinc-800 py-2.5 text-sm last:border-b-0">
-                        <div className="min-w-0">
-                            <p className="truncate font-semibold text-zinc-100">{c.label || "Sin nombre"}</p>
-                            <p className="font-numeric text-[11.5px] text-zinc-500">{c.phone}</p>
+            {contacts.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    No has agregado ningún contacto a ignorar.
+                </p>
+            ) : (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                    {contacts.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between gap-2 border-b border-zinc-800 py-2.5 text-sm last:border-b-0">
+                            <div className="min-w-0">
+                                <p className="truncate font-semibold text-zinc-100">{c.label || "Sin nombre"}</p>
+                                <p className="font-numeric text-[11.5px] text-zinc-500">{c.phone}</p>
+                            </div>
+                            {perms.canDelete ? (
+                                <button onClick={() => remove(c.id)} disabled={isPending} className="shrink-0 text-xs text-zinc-500 underline underline-offset-2 disabled:opacity-50">
+                                    quitar
+                                </button>
+                            ) : null}
                         </div>
-                        {perms.canDelete ? (
-                            <button onClick={() => remove(c.id)} disabled={isPending} className="shrink-0 text-xs text-zinc-600 underline disabled:opacity-50">
-                                quitar
-                            </button>
-                        ) : null}
-                    </div>
-                ))}
-                {contacts.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">No has agregado ningún contacto a ignorar.</p> : null}
-            </div>
+                    ))}
+                </div>
+            )}
 
             <BottomSheet open={open} onClose={() => setOpen(false)} title="Ignorar contacto">
                 <div className="flex flex-col gap-3">

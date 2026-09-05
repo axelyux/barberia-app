@@ -21,14 +21,14 @@ export default function OnboardingChecklist({ tenantSlug, brandColor, steps }) {
     };
 
     return (
-        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
-            <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Primeros pasos</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+            <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Primeros pasos</p>
                 <button onClick={dismiss} className="text-xs text-zinc-600 underline">
                     ocultar
                 </button>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
                 {steps.map((step) => (
                     <div key={step.label} className="flex items-center gap-2.5 text-sm">
                         <span

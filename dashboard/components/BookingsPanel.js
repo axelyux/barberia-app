@@ -53,7 +53,7 @@ function CreateBookingForm({ services, barbers, brandStyle, isPending, error, on
                     <select
                         value={form.serviceId}
                         onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))}
-                        className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                     >
                         <option value="">Sin especificar (30 min)</option>
                         {services.map((s) => (
@@ -68,7 +68,7 @@ function CreateBookingForm({ services, barbers, brandStyle, isPending, error, on
                         <select
                             value={form.barberId}
                             onChange={(e) => setForm((f) => ({ ...f, barberId: e.target.value }))}
-                            className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                            className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                         >
                             <option value="">Sin asignar</option>
                             {barbers.map((b) => (
@@ -160,24 +160,24 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
 
     return (
         <div>
-            <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1">
-                    <button onClick={() => shiftDay(-1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 text-zinc-400">
+                    <button onClick={() => shiftDay(-1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-zinc-400">
                         ‹
                     </button>
                     <p className="w-40 text-center text-[12px] font-bold text-zinc-300">{dateLabel(dateISO)}</p>
-                    <button onClick={() => shiftDay(1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 text-zinc-400">
+                    <button onClick={() => shiftDay(1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-zinc-400">
                         ›
                     </button>
                 </div>
                 {perms.canAdd ? (
-                    <button onClick={() => setCreateOpen(true)} style={brandStyle} className="flex h-8 shrink-0 items-center gap-1 rounded-md px-3 text-xs font-bold">
+                    <button onClick={() => setCreateOpen(true)} style={brandStyle} className="flex h-8 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-bold shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]">
                         + Agendar
                     </button>
                 ) : null}
             </div>
 
-            <div className="flex flex-col rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
+            <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900 px-4 shadow-[var(--shadow-panel)]">
                 {bookings.map((b) => {
                     const meta = BOOKING_STATUS_META[b.status];
                     return (
@@ -202,7 +202,11 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                         </button>
                     );
                 })}
-                {bookings.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">Sin citas agendadas este día.</p> : null}
+                {bookings.length === 0 ? (
+                    <div className="my-4 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                        Sin citas agendadas este día.
+                    </div>
+                ) : null}
             </div>
 
             {perms.canAdd ? (
@@ -236,7 +240,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                     disabled={!perms.canEdit}
                                     value={serviceId}
                                     onChange={(e) => setServiceId(e.target.value)}
-                                    className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                    className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                                 >
                                     <option value="">Sin especificar</option>
                                     {services.map((s) => (
@@ -252,7 +256,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                         disabled={!perms.canEdit}
                                         value={barberId}
                                         onChange={(e) => setBarberId(e.target.value)}
-                                        className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                                     >
                                         <option value="">Sin asignar</option>
                                         {barbers.map((b) => (
@@ -296,7 +300,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                                 <select
                                                     value={paymentMethod}
                                                     onChange={(e) => setPaymentMethod(e.target.value)}
-                                                    className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                                    className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                                                 >
                                                     {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
                                                         <option key={key} value={key}>
@@ -309,7 +313,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                                 <select
                                                     value={paymentStatus}
                                                     onChange={(e) => setPaymentStatus(e.target.value)}
-                                                    className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none"
+                                                    className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                                                 >
                                                     {Object.entries(PAYMENT_STATUS_META).map(([key, meta]) => (
                                                         <option key={key} value={key}>

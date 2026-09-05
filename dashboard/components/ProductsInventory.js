@@ -150,7 +150,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Inventario</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Inventario</p>
                 {perms.canAdd ? (
                     <button
                         onClick={() => {
@@ -170,7 +170,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                 {pageItems.map((p) => {
                     const lowStock = p.stock <= p.lowStockThreshold;
                     return (
-                        <div key={p.id} className="rounded-md border border-zinc-800 bg-zinc-900 p-3">
+                        <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
                             <button
                                 onClick={() => {
                                     setError("");
@@ -215,9 +215,9 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                     );
                 })}
                 {products.length === 0 ? (
-                    <p className="col-span-2 rounded-md border border-zinc-800 bg-zinc-900 py-6 text-center text-sm text-zinc-500">
+                    <div className="col-span-2 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                         Todavía no agregas productos.
-                    </p>
+                    </div>
                 ) : null}
             </div>
 

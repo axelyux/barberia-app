@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Sistema visual: tipografía con carácter (Plus Jakarta Sans + JetBrains Mono para
+   datos/números, cargadas en app/layout.js vía next/font), y unos tokens de superficie
+   extra para dar profundidad a las tarjetas sin salirse de la paleta zinc que ya usa
+   todo el panel — así el resto de los componentes puede adoptar bg-surface/shadow-panel
+   donde ayude, sin obligar a reescribir cada archivo de una vez. */
+@theme {
+  --font-sans: var(--font-sans), -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --color-surface: #121214;
+  --color-surface-2: #18181b;
+  --color-border-soft: #202024;
+
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 -4px 32px -8px rgba(0, 0, 0, 0.6);
+}
+
 :root {
   color-scheme: dark;
 }
@@ -12,11 +29,26 @@ body {
 body {
   background: #09090b;
   color: #f4f4f5;
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .font-numeric {
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* Oculta la barra de scroll horizontal de la navegación inferior sin quitarle el scroll,
+   por si en pantallas muy angostas todavía hace falta desplazarse un poco. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

@@ -15,7 +15,7 @@ function PaymentTypeSelect({ value, onChange, disabled }) {
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className="min-h-11 w-full rounded-md border border-zinc-700 bg-zinc-800/60 px-3.5 text-[15px] text-zinc-50 focus:border-amber-500 focus:outline-none disabled:opacity-50"
+            className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:opacity-50"
         >
             {Object.entries(PAYMENT_TYPE_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>
@@ -188,7 +188,7 @@ export default function BarbersEditor({ barbers, slug, brandColor, perms }) {
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Barberos</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Barberos</p>
                 {perms.canAdd ? (
                     <button
                         onClick={() => {
@@ -196,39 +196,44 @@ export default function BarbersEditor({ barbers, slug, brandColor, perms }) {
                             setCreateOpen(true);
                         }}
                         style={brandStyle}
-                        className="flex h-8 items-center gap-1 rounded-md px-3 text-xs font-bold"
+                        className="flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-bold"
                     >
                         + Agregar
                     </button>
                 ) : null}
             </div>
 
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3.5">
-                {barbers.map((b) => (
-                    <button
-                        key={b.id}
-                        onClick={() => {
-                            setError("");
-                            setEditingId(b.id);
-                        }}
-                        className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
-                    >
-                        <div className="min-w-0">
-                            <p className={`truncate text-sm font-bold ${b.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{b.name}</p>
-                            <p className="truncate text-xs text-zinc-500">
-                                {b.specialty || "Sin especialidad"}
-                                {b.phone ? ` · ${b.phone}` : ""}
-                            </p>
-                        </div>
-                        <span className="font-numeric shrink-0 text-right text-xs font-bold text-zinc-300">
-                            {PAYMENT_TYPE_LABELS[b.paymentType ?? "COMISION"]}
-                            <br />
-                            {b.paymentType === "SUELDO" ? money(b.salaryCents ?? 0) : `${b.commissionPercent}%`}
-                        </span>
-                    </button>
-                ))}
-                {barbers.length === 0 ? <p className="py-6 text-center text-sm text-zinc-500">Todavía no agregas barberos.</p> : null}
-            </div>
+            {barbers.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    Todavía no agregas barberos.
+                </p>
+            ) : (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                    {barbers.map((b) => (
+                        <button
+                            key={b.id}
+                            onClick={() => {
+                                setError("");
+                                setEditingId(b.id);
+                            }}
+                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                        >
+                            <div className="min-w-0">
+                                <p className={`truncate text-sm font-bold ${b.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{b.name}</p>
+                                <p className="truncate text-xs text-zinc-500">
+                                    {b.specialty || "Sin especialidad"}
+                                    {b.phone ? ` · ${b.phone}` : ""}
+                                </p>
+                            </div>
+                            <span className="font-numeric shrink-0 text-right text-xs font-bold text-zinc-300">
+                                {PAYMENT_TYPE_LABELS[b.paymentType ?? "COMISION"]}
+                                <br />
+                                {b.paymentType === "SUELDO" ? money(b.salaryCents ?? 0) : `${b.commissionPercent}%`}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {perms.canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Agregar barbero">

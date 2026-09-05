@@ -1,7 +1,7 @@
 import { money } from "@/lib/format";
 
-const GOOD = "#0ca30c";
-const CRITICAL = "#d03b3b";
+const GOOD = "#34d399";
+const CRITICAL = "#f87171";
 
 export function RevenueExpenseChart({ daily }) {
     const max = Math.max(1, ...daily.flatMap((d) => [d.revenueCents, d.expenseCents]));
@@ -14,9 +14,9 @@ export function RevenueExpenseChart({ daily }) {
     const gap = 3;
 
     return (
-        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
             <div className="mb-3 flex items-center justify-between">
-                <p className="text-[12px] font-bold uppercase tracking-wide text-zinc-500">Ingresos vs. gastos · 7 días</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos vs. gastos · 7 días</p>
                 <div className="flex items-center gap-3 text-[11px] font-semibold text-zinc-400">
                     <span className="flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-sm" style={{ background: GOOD }} /> Ingresos
@@ -28,9 +28,9 @@ export function RevenueExpenseChart({ daily }) {
             </div>
             <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label="Ingresos y gastos de los últimos 7 días">
                 {[0.25, 0.5, 0.75, 1].map((f) => (
-                    <line key={f} x1={0} x2={w} y1={barH - barH * f} y2={barH - barH * f} stroke="#2c2c2a" strokeWidth="1" />
+                    <line key={f} x1={0} x2={w} y1={barH - barH * f} y2={barH - barH * f} stroke="#27272a" strokeWidth="1" />
                 ))}
-                <line x1={0} x2={w} y1={barH} y2={barH} stroke="#383835" strokeWidth="1" />
+                <line x1={0} x2={w} y1={barH} y2={barH} stroke="#3f3f46" strokeWidth="1" />
 
                 {daily.map((d, i) => {
                     const cx = i * groupW + groupW / 2;
@@ -38,13 +38,13 @@ export function RevenueExpenseChart({ daily }) {
                     const expH = (d.expenseCents / max) * (barH - 6);
                     return (
                         <g key={d.key}>
-                            <rect x={cx - gap / 2 - barW} y={barH - revH} width={barW} height={Math.max(revH, 1)} rx="2" fill={GOOD}>
+                            <rect x={cx - gap / 2 - barW} y={barH - revH} width={barW} height={Math.max(revH, 1)} rx="2.5" fill={GOOD}>
                                 <title>{`${d.label}: ${money(d.revenueCents)} en ingresos`}</title>
                             </rect>
-                            <rect x={cx + gap / 2} y={barH - expH} width={barW} height={Math.max(expH, 1)} rx="2" fill={CRITICAL}>
+                            <rect x={cx + gap / 2} y={barH - expH} width={barW} height={Math.max(expH, 1)} rx="2.5" fill={CRITICAL}>
                                 <title>{`${d.label}: ${money(d.expenseCents)} en gastos`}</title>
                             </rect>
-                            <text x={cx} y={h - 3} textAnchor="middle" fontSize="9" fill="#898781" fontWeight="600">
+                            <text x={cx} y={h - 3} textAnchor="middle" fontSize="9" fill="#a1a1aa" fontWeight="600">
                                 {d.label.replace(".", "")}
                             </text>
                         </g>
@@ -59,8 +59,8 @@ export function TopProductsChart({ topProducts }) {
     if (topProducts.length === 0) return null;
     const max = Math.max(1, ...topProducts.map((p) => p.revenueCents));
     return (
-        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
-            <p className="mb-3 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Productos más vendidos · 30 días</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Productos más vendidos · 30 días</p>
             <div className="flex flex-col gap-2.5">
                 {topProducts.map((p) => (
                     <div key={p.name}>
@@ -70,8 +70,8 @@ export function TopProductsChart({ topProducts }) {
                             </span>
                             <span className="font-numeric shrink-0 font-semibold text-zinc-100">{money(p.revenueCents)}</span>
                         </div>
-                        <div className="h-2 w-full rounded-sm bg-zinc-800">
-                            <div className="h-2 rounded-sm" style={{ width: `${Math.max(4, (p.revenueCents / max) * 100)}%`, background: GOOD }} />
+                        <div className="h-2 w-full rounded-full bg-zinc-800">
+                            <div className="h-2 rounded-full" style={{ width: `${Math.max(4, (p.revenueCents / max) * 100)}%`, background: GOOD }} />
                         </div>
                     </div>
                 ))}
@@ -83,8 +83,8 @@ export function TopProductsChart({ topProducts }) {
 export function CategoryBreakdown({ categoryTotals }) {
     const max = Math.max(1, ...categoryTotals.map((c) => c.amountCents));
     return (
-        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
-            <p className="mb-3 text-[12px] font-bold uppercase tracking-wide text-zinc-500">Gastos por categoría · 30 días</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Gastos por categoría · 30 días</p>
             <div className="flex flex-col gap-2.5">
                 {categoryTotals.map((c) => (
                     <div key={c.category}>
@@ -92,9 +92,9 @@ export function CategoryBreakdown({ categoryTotals }) {
                             <span className="font-semibold text-zinc-200">{c.label}</span>
                             <span className="font-numeric font-semibold text-zinc-100">{money(c.amountCents)}</span>
                         </div>
-                        <div className="h-2 w-full rounded-sm bg-zinc-800">
+                        <div className="h-2 w-full rounded-full bg-zinc-800">
                             <div
-                                className="h-2 rounded-sm"
+                                className="h-2 rounded-full"
                                 style={{ width: `${Math.max(4, (c.amountCents / max) * 100)}%`, background: c.color }}
                             />
                         </div>
