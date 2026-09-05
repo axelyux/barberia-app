@@ -46,13 +46,13 @@ function PermissionMatrix({ permissions, setPermissions }) {
         setPermissions((p) => ({ ...p, [moduleKey]: { ...p[moduleKey], [actionKey]: !p[moduleKey][actionKey] } }));
 
     return (
-        <div className="overflow-x-auto rounded-xl border border-zinc-800 shadow-[var(--shadow-panel)]">
+        <div className="overflow-x-auto rounded-xl border border-white/10 shadow-[var(--shadow-panel)]">
             <table className="w-full border-collapse text-left text-[12.5px]">
                 <thead>
-                    <tr className="border-b border-zinc-800 bg-zinc-800/50">
+                    <tr className="border-b border-white/10 bg-zinc-800/50">
                         <th className="px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">Módulo</th>
                         {ACTIONS.map((a) => (
-                            <th key={a.key} className="border-l border-zinc-800/80 px-2 py-2.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">
+                            <th key={a.key} className="border-l border-white/10 px-2 py-2.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500">
                                 {a.label}
                             </th>
                         ))}
@@ -60,10 +60,10 @@ function PermissionMatrix({ permissions, setPermissions }) {
                 </thead>
                 <tbody>
                     {MODULES.map((m, i) => (
-                        <tr key={m.key} className={`border-b border-zinc-800 last:border-b-0 ${i % 2 === 1 ? "bg-zinc-800/20" : ""}`}>
+                        <tr key={m.key} className={`border-b border-white/10 last:border-b-0 ${i % 2 === 1 ? "bg-zinc-800/20" : ""}`}>
                             <td className="px-3 py-2.5 font-semibold text-zinc-200">{m.label}</td>
                             {ACTIONS.map((a) => (
-                                <td key={a.key} className="border-l border-zinc-800/80 px-2 py-2.5 text-center">
+                                <td key={a.key} className="border-l border-white/10 px-2 py-2.5 text-center">
                                     <input
                                         type="checkbox"
                                         checked={permissions[m.key][a.key]}
@@ -107,7 +107,7 @@ function UserForm({ initial, requirePassword, brandStyle, isPending, error, onSa
                                 type="button"
                                 onClick={() => setRole(r)}
                                 aria-pressed={role === r}
-                                className={`flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${role === r ? "border-zinc-500 bg-zinc-800 text-zinc-50" : "border-zinc-800 bg-zinc-900 text-zinc-500"
+                                className={`flex h-9 flex-1 items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${role === r ? "border-zinc-500 bg-zinc-800 text-zinc-50" : "border-white/10 bg-zinc-900 text-zinc-500"
                                     }`}
                             >
                                 {r === "ADMIN" ? "Admin" : "Usuario"}
@@ -175,11 +175,11 @@ export default function UsersEditor({ users, slug, brandColor, perms }) {
                 ) : null}
             </div>
             {users.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     Todavía no agregas usuarios.
                 </p>
             ) : (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     {users.map((u) => (
                         <button
                             key={u.id}
@@ -188,7 +188,7 @@ export default function UsersEditor({ users, slug, brandColor, perms }) {
                                 setError("");
                                 setEditingId(u.id);
                             }}
-                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0 disabled:opacity-60"
+                            className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left last:border-b-0 disabled:opacity-60"
                             disabled={!perms.canEdit}
                         >
                             <div className="min-w-0">

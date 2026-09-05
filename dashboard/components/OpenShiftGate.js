@@ -18,7 +18,7 @@ export default function OpenShiftGate({ slug, brandColor, tenantName, shiftTypes
                 <p className="text-xs font-bold uppercase tracking-widest" style={{ color: brandColor }}>
                     {tenantName}
                 </p>
-                <div className="max-w-xs rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-[var(--shadow-panel)]">
+                <div className="max-w-xs rounded-xl border border-white/10 bg-zinc-900/60 p-6 shadow-[var(--shadow-panel)]">
                     <p className="text-sm text-zinc-400">
                         La caja todavía no se ha abierto hoy. Pídele a un administrador o gerente que abra el turno para poder entrar.
                     </p>
@@ -50,7 +50,7 @@ export default function OpenShiftGate({ slug, brandColor, tenantName, shiftTypes
                 <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-50">Abrir caja</h1>
                 <p className="mt-1 text-sm text-zinc-500">Antes de empezar, registra tu turno y el efectivo con el que arrancas la caja.</p>
             </div>
-            <div className="flex w-full max-w-xs flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 text-left shadow-[var(--shadow-panel)]">
+            <div className="flex w-full max-w-xs flex-col gap-4 rounded-xl border border-white/10 bg-zinc-900/60 p-5 text-left shadow-[var(--shadow-panel)]">
                 {shiftTypes.length > 0 ? (
                     <Field label="Turno">
                         <select
@@ -66,7 +66,7 @@ export default function OpenShiftGate({ slug, brandColor, tenantName, shiftTypes
                         </select>
                     </Field>
                 ) : (
-                    <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/40 p-3 text-xs text-zinc-500">
+                    <p className="rounded-lg border border-dashed border-white/10 bg-zinc-900/40 p-3 text-xs text-zinc-500">
                         No has configurado turnos todavía (puedes hacerlo en Ajustes). Por ahora se abrirá sin turno asignado.
                     </p>
                 )}

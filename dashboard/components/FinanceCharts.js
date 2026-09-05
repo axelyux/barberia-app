@@ -14,7 +14,7 @@ export function RevenueExpenseChart({ daily }) {
     const gap = 3;
 
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+        <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
             <div className="mb-3 flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos vs. gastos · 7 días</p>
                 <div className="flex items-center gap-3 text-[11px] font-semibold text-zinc-400">
@@ -59,7 +59,7 @@ export function TopProductsChart({ topProducts }) {
     if (topProducts.length === 0) return null;
     const max = Math.max(1, ...topProducts.map((p) => p.revenueCents));
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+        <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Productos más vendidos · 30 días</p>
             <div className="flex flex-col gap-2.5">
                 {topProducts.map((p) => (
@@ -83,7 +83,7 @@ export function TopProductsChart({ topProducts }) {
 export function CategoryBreakdown({ categoryTotals }) {
     const max = Math.max(1, ...categoryTotals.map((c) => c.amountCents));
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+        <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Gastos por categoría · 30 días</p>
             <div className="flex flex-col gap-2.5">
                 {categoryTotals.map((c) => (

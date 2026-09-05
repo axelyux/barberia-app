@@ -170,7 +170,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                 {pageItems.map((p) => {
                     const lowStock = p.stock <= p.lowStockThreshold;
                     return (
-                        <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                        <div key={p.id} className="rounded-xl border border-white/10 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
                             <button
                                 onClick={() => {
                                     setError("");
@@ -215,7 +215,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                     );
                 })}
                 {products.length === 0 ? (
-                    <div className="col-span-2 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    <div className="col-span-2 rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                         Todavía no agregas productos.
                     </div>
                 ) : null}
@@ -226,7 +226,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                     <button
                         onClick={() => setPage((p) => Math.max(0, p - 1))}
                         disabled={currentPage === 0}
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 text-zinc-400 disabled:opacity-30"
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-zinc-400 disabled:opacity-30"
                     >
                         ‹
                     </button>
@@ -236,7 +236,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                     <button
                         onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                         disabled={currentPage >= totalPages - 1}
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 text-zinc-400 disabled:opacity-30"
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-zinc-400 disabled:opacity-30"
                     >
                         ›
                     </button>

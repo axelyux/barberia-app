@@ -7,15 +7,15 @@ export default function FinancePanel({ finance }) {
     return (
         <div className="flex flex-col gap-4">
             <div className="grid grid-cols-3 gap-2.5">
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos 30d</p>
                     <p className="font-numeric mt-1.5 text-[16px] font-bold text-emerald-400">{money(finance.revenue30)}</p>
                 </div>
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Gastos 30d</p>
                     <p className="font-numeric mt-1.5 text-[16px] font-bold text-red-400">{money(finance.expense30)}</p>
                 </div>
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Utilidad 30d</p>
                     <p className={`font-numeric mt-1.5 text-[16px] font-bold ${profitGood ? "text-zinc-50" : "text-red-400"}`}>
                         {money(finance.profit30)}
@@ -36,10 +36,10 @@ export default function FinancePanel({ finance }) {
             <CategoryBreakdown categoryTotals={finance.categoryTotals} />
 
             {finance.barberBreakdown.length > 0 ? (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     <p className="pt-3.5 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Comisiones por barbero · 30 días</p>
                     {finance.barberBreakdown.map((b) => (
-                        <div key={b.id} className="flex items-center justify-between border-b border-zinc-800 py-2.5 text-sm last:border-b-0">
+                        <div key={b.id} className="flex items-center justify-between border-b border-white/10 py-2.5 text-sm last:border-b-0">
                             <div>
                                 <p className="font-semibold text-zinc-100">{b.name}</p>
                                 <p className="text-[11.5px] text-zinc-500">

@@ -66,7 +66,7 @@ export default function FlowEditor({ initialMessages, brandColor, slug, perms })
 
             <div className="flex flex-col gap-3.5">
                 {STEPS.map((step) => (
-                    <div key={step.key} className="rounded-xl border border-zinc-800 bg-zinc-900 p-2.5 shadow-[var(--shadow-panel)]">
+                    <div key={step.key} className="rounded-xl border border-white/10 bg-zinc-900 p-2.5 shadow-[var(--shadow-panel)]">
                         <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">{step.label}</p>
                         <Bubble
                             value={messages[step.key] ?? ""}

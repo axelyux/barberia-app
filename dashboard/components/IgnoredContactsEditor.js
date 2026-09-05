@@ -45,13 +45,13 @@ export default function IgnoredContactsEditor({ contacts, slug, brandColor, perm
                 Útil si usas tu número personal: agrega aquí a tus contactos guardados (familia, amigos) para que el bot nunca les conteste — solo a tus clientes.
             </p>
             {contacts.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     No has agregado ningún contacto a ignorar.
                 </p>
             ) : (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     {contacts.map((c) => (
-                        <div key={c.id} className="flex items-center justify-between gap-2 border-b border-zinc-800 py-2.5 text-sm last:border-b-0">
+                        <div key={c.id} className="flex items-center justify-between gap-2 border-b border-white/10 py-2.5 text-sm last:border-b-0">
                             <div className="min-w-0">
                                 <p className="truncate font-semibold text-zinc-100">{c.label || "Sin nombre"}</p>
                                 <p className="font-numeric text-[11.5px] text-zinc-500">{c.phone}</p>

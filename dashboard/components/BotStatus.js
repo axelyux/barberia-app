@@ -18,7 +18,7 @@ export default function BotStatus({ connected, compact = false }) {
     return (
         <div
             className={`flex items-center gap-2.5 rounded-xl border p-3 shadow-[var(--shadow-panel)] ${
-                connected ? "border-emerald-800/40 bg-emerald-500/5" : "border-zinc-800 bg-zinc-900"
+                connected ? "border-emerald-800/40 bg-emerald-500/5" : "border-white/10 bg-zinc-900"
             }`}
         >
             <span className="relative flex h-2.5 w-2.5 shrink-0">

@@ -204,11 +204,11 @@ export default function BarbersEditor({ barbers, slug, brandColor, perms }) {
             </div>
 
             {barbers.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     Todavía no agregas barberos.
                 </p>
             ) : (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     {barbers.map((b) => (
                         <button
                             key={b.id}
@@ -216,7 +216,7 @@ export default function BarbersEditor({ barbers, slug, brandColor, perms }) {
                                 setError("");
                                 setEditingId(b.id);
                             }}
-                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                            className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left last:border-b-0"
                         >
                             <div className="min-w-0">
                                 <p className={`truncate text-sm font-bold ${b.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{b.name}</p>

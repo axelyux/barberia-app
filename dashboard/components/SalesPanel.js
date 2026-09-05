@@ -455,7 +455,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
 
             <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} onExport={exportCSV} isPending={isPending} />
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+            <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                 {sales.map((s) => {
                     const statusMeta = PAYMENT_STATUS_META[s.paymentStatus ?? "PAGADO"];
                     return (
@@ -465,7 +465,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                                 setError("");
                                 setEditingId(s.id);
                             }}
-                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-zinc-800/30 active:bg-zinc-800/40"
+                            className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-zinc-800/30 active:bg-zinc-800/40"
                         >
                             <div className="min-w-0">
                                 <p className="truncate font-semibold text-zinc-100">
@@ -494,7 +494,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                     );
                 })}
                 {sales.length === 0 ? (
-                    <div className="my-3 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    <div className="my-3 rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                         Sin ventas registradas todavía.
                     </div>
                 ) : null}

@@ -105,11 +105,11 @@ export default function ShiftTypesEditor({ shiftTypes, slug, brandColor, perms }
             </div>
 
             {shiftTypes.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     Sin turnos configurados (ej. Mañana, Tarde, Día completo).
                 </p>
             ) : (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     {shiftTypes.map((t) => (
                         <button
                             key={t.id}
@@ -117,7 +117,7 @@ export default function ShiftTypesEditor({ shiftTypes, slug, brandColor, perms }
                                 setError("");
                                 setEditingId(t.id);
                             }}
-                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                            className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left last:border-b-0"
                         >
                             <p className={`text-sm font-bold ${t.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{t.name}</p>
                         </button>

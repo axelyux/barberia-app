@@ -46,7 +46,7 @@ function CustomerHistory({ customerId, slug }) {
     if (!history) return <p className="mt-3 text-xs text-zinc-500">Cargando historial…</p>;
 
     return (
-        <div className="mt-4 border-t border-zinc-800 pt-3.5">
+        <div className="mt-4 border-t border-white/10 pt-3.5">
             <div className="mb-2.5 flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Historial</span>
                 <span className="text-xs text-zinc-400">
@@ -54,11 +54,11 @@ function CustomerHistory({ customerId, slug }) {
                 </span>
             </div>
             {history.entries.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     Todavía no tiene citas ni compras registradas.
                 </p>
             ) : (
-                <div className="flex flex-col gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                <div className="flex flex-col gap-2.5 rounded-xl border border-white/10 bg-zinc-900/60 p-3">
                     {history.entries.map((e) => (
                         <div key={`${e.kind}-${e.id}`} className="flex items-center justify-between gap-2 text-sm">
                             <div className="min-w-0">
@@ -264,11 +264,11 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
             </div>
 
             {customers.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <p className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     Todavía no agregas clientes.
                 </p>
             ) : (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     {customers.map((c) => (
                         <button
                             key={c.id}
@@ -276,7 +276,7 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
                                 setError("");
                                 setEditingId(c.id);
                             }}
-                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                            className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left last:border-b-0"
                         >
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-bold text-zinc-50">{c.name}</p>
@@ -294,7 +294,7 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
                 <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="mt-2.5 w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2.5 text-xs font-bold text-zinc-400 disabled:opacity-60"
+                    className="mt-2.5 w-full rounded-xl border border-white/10 bg-zinc-900 py-2.5 text-xs font-bold text-zinc-400 disabled:opacity-60"
                 >
                     {loadingMore ? "Cargando…" : "Cargar más clientes"}
                 </button>

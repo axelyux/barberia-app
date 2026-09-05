@@ -21,7 +21,7 @@ export default function OnboardingChecklist({ tenantSlug, brandColor, steps }) {
     };
 
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+        <div className="rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
             <div className="mb-3 flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Primeros pasos</p>
                 <button onClick={dismiss} className="text-xs text-zinc-600 underline">

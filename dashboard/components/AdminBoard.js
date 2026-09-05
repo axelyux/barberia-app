@@ -72,7 +72,7 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
         <>
             <TenantFormFields form={form} setForm={setForm} />
 
-            <div className="mt-3 flex items-center justify-between border-t border-zinc-800 pt-3 text-[13.5px]">
+            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3 text-[13.5px]">
                 <span className="text-zinc-400">WhatsApp</span>
                 <span className="font-numeric font-semibold text-zinc-100">{tenant.whatsappNumber ?? "Pendiente de vincular"}</span>
             </div>
@@ -180,19 +180,19 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                 </div>
                 <button
                     onClick={() => logoutAdmin()}
-                    className="flex min-h-9 items-center justify-center rounded-md border border-zinc-800 px-3 text-xs font-semibold text-zinc-400"
+                    className="flex min-h-9 items-center justify-center rounded-md border border-white/10 px-3 text-xs font-semibold text-zinc-400"
                 >
                     Salir
                 </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                <div className="rounded-md border border-white/10 bg-zinc-900 p-3.5">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos del mes</p>
                     <p className="font-numeric mt-2 text-[22px] font-bold text-zinc-50">{money(monthlyRevenueCents)}</p>
                     <p className="mt-1.5 text-xs text-zinc-400">de {tenants.length} barberías</p>
                 </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                <div className="rounded-md border border-white/10 bg-zinc-900 p-3.5">
                     <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Barberías totales</p>
                     <p className="font-numeric mt-2 text-[22px] font-bold text-zinc-50">{tenants.length}</p>
                     <p className="mt-1.5 text-xs text-zinc-400">
@@ -209,7 +209,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                         aria-pressed={filter === f.key}
                         className={`flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3.5 text-sm font-semibold transition-colors ${filter === f.key
                                 ? "border-amber-700/50 bg-amber-500/10 text-amber-400"
-                                : "border-zinc-800 bg-zinc-900 text-zinc-400"
+                                : "border-white/10 bg-zinc-900 text-zinc-400"
                             }`}
                     >
                         {f.label}
@@ -236,7 +236,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                     {visibleTenants.map((t) => {
                         const meta = TENANT_STATUS_META[t.status];
                         return (
-                            <div key={t.id} className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5">
+                            <div key={t.id} className="rounded-md border border-white/10 bg-zinc-900 p-3.5">
                                 <button onClick={() => setSelectedId(t.id)} className="flex w-full items-start gap-3 text-left">
                                     <Avatar name={t.name} logoUrl={t.logoUrl} color={t.brandColor} square />
                                     <div className="min-w-0 flex-1">
@@ -247,7 +247,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                             </div>
                                             <Badge tone={meta.tone}>{meta.label}</Badge>
                                         </div>
-                                        <div className="mt-2.5 flex flex-wrap gap-x-3.5 gap-y-1 border-t border-zinc-800 pt-2.5 text-xs text-zinc-400">
+                                        <div className="mt-2.5 flex flex-wrap gap-x-3.5 gap-y-1 border-t border-white/10 pt-2.5 text-xs text-zinc-400">
                                             <span>
                                                 Plan <b className="font-numeric font-semibold text-zinc-100">{money(t.planPriceCents)}</b>/mes
                                             </span>
@@ -274,7 +274,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                             💬 Cobrar
                                         </a>
                                     ) : (
-                                        <span className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-zinc-800 bg-zinc-800/30 text-sm text-zinc-600">
+                                        <span className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-white/10 bg-zinc-800/30 text-sm text-zinc-600">
                                             Sin WhatsApp
                                         </span>
                                     )}
@@ -294,7 +294,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                         );
                     })}
                     {visibleTenants.length === 0 ? (
-                        <p className="rounded-md border border-dashed border-zinc-800 p-6 text-center text-sm text-zinc-500">
+                        <p className="rounded-md border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                             No hay barberías en este filtro.
                         </p>
                     ) : null}
@@ -365,7 +365,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                             Comparte estos datos con el dueño para su primer inicio de sesión en{" "}
                             <span className="font-semibold text-zinc-200">/t/{newCredentials.slug}</span>:
                         </p>
-                        <div className="rounded-md border border-zinc-800 bg-zinc-900 p-3.5 font-mono text-sm text-zinc-100">
+                        <div className="rounded-md border border-white/10 bg-zinc-900 p-3.5 font-mono text-sm text-zinc-100">
                             <p>Usuario: {newCredentials.username}</p>
                             <p>Contraseña: {newCredentials.tempPassword}</p>
                         </div>

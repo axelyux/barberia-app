@@ -135,7 +135,7 @@ export default function TenantBoard({
 
             <div className="flex flex-col gap-4 px-4 pb-28 pt-2">
                 {allowedTabs.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-zinc-800 p-6 text-center text-sm text-zinc-500">
+                    <p className="rounded-md border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                         Tu usuario no tiene ninguna vista habilitada. Pídele al administrador que te asigne permisos.
                     </p>
                 ) : null}
@@ -154,13 +154,13 @@ export default function TenantBoard({
                         />
 
                         <div className="grid grid-cols-2 gap-2.5">
-                            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+                            <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
                                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Citas hoy</p>
                                 <p className="font-numeric mt-2 text-[34px] font-bold" style={{ color: brandColor }}>
                                     {bookings.length}
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
+                            <div className="rounded-xl border border-white/10 bg-zinc-900 p-3.5 shadow-[var(--shadow-panel)]">
                                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Ingresos de hoy</p>
                                 <p className="font-numeric mt-2 text-[22px] font-bold text-zinc-50">
                                     {money(servicesRevenue + salesRevenue)}
@@ -174,7 +174,7 @@ export default function TenantBoard({
                                     <b className="font-numeric font-semibold text-zinc-100">{money(salesRevenue)}</b>
                                 </div>
                                 {pendingToday > 0 ? (
-                                    <div className="mt-1.5 flex justify-between border-t border-zinc-800 pt-1.5 text-xs text-orange-400">
+                                    <div className="mt-1.5 flex justify-between border-t border-white/10 pt-1.5 text-xs text-orange-400">
                                         <span>Pendiente de cobro</span>
                                         <b className="font-numeric font-semibold">{money(pendingToday)}</b>
                                     </div>
@@ -193,7 +193,7 @@ export default function TenantBoard({
                         />
 
                         {perms.FINANZAS.canView ? (
-                            <div className="border-t border-zinc-800 pt-4">
+                            <div className="border-t border-white/10 pt-4">
                                 <CashShiftPanel
                                     openShift={openShift}
                                     shiftHistory={shiftHistory}
@@ -225,7 +225,7 @@ export default function TenantBoard({
 
                         {perms.PRODUCTOS.canView ? (
                             <>
-                                <div className="border-t border-zinc-800 pt-4">
+                                <div className="border-t border-white/10 pt-4">
                                     {lowStockProducts.length > 0 ? (
                                         <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-3.5">
                                             <p className="text-[12px] font-bold uppercase tracking-wide text-red-400">Stock bajo</p>
@@ -297,7 +297,7 @@ export default function TenantBoard({
                             <BarbersEditor barbers={barbers} slug={tenant.slug} brandColor={brandColor} perms={perms.SEGURIDAD} />
                         ) : null}
                         {perms.CITAS.canView ? (
-                            <div className={perms.SEGURIDAD.canView ? "border-t border-zinc-800 pt-4" : ""}>
+                            <div className={perms.SEGURIDAD.canView ? "border-t border-white/10 pt-4" : ""}>
                                 <CustomersEditor customers={customers} barbers={barbers} slug={tenant.slug} brandColor={brandColor} perms={perms.CITAS} />
                             </div>
                         ) : null}

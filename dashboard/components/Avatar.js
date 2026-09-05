@@ -18,7 +18,7 @@ export default function Avatar({ name, logoUrl, color, size = 40, square = false
                 width={size}
                 height={size}
                 style={{ width: dimension, height: dimension }}
-                className={`shrink-0 border border-zinc-800 object-cover shadow-sm ${shape}`}
+                className={`shrink-0 border border-white/10 object-cover shadow-sm ${shape}`}
             />
         );
     }

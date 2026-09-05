@@ -45,11 +45,11 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
     return (
         <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Horario de atención</p>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+            <div className="rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
                 <p className="mb-3.5 text-xs text-zinc-500">
                     El bot avisa automáticamente si te escriben fuera de estas horas.
                 </p>
-                <div className="flex flex-col divide-y divide-zinc-800/80">
+                <div className="flex flex-col divide-y divide-white/10/80">
                     {days.map((d) => (
                         <div key={d.weekday} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                             <label className="flex w-[92px] shrink-0 items-center gap-2">
@@ -89,7 +89,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                     ))}
                 </div>
 
-                <div className="mt-4 border-t border-zinc-800 pt-4">
+                <div className="mt-4 border-t border-white/10 pt-4">
                     <label className="flex flex-col gap-1.5">
                         <span className="text-[11.5px] font-semibold uppercase tracking-wide text-zinc-500">Anticipación mínima para agendar</span>
                         <span className="text-xs text-zinc-500">

@@ -9,6 +9,14 @@
   --font-sans: var(--font-sans), -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
+  /* Re-defino la escala zinc que ya usa TODO el panel (bg-zinc-950/900, etc.) en vez de
+     agregar colores nuevos que habría que ir aplicando archivo por archivo: así el fondo
+     base pasa a #0a0a0a y las tarjetas a #141414 (los tonos exactos pedidos) de un solo
+     golpe, sin retocar cada componente. El resto de la escala (800/700/600...) se deja
+     intacta porque ahí sí siguen viéndose bien tal cual. */
+  --color-zinc-950: #0a0a0a;
+  --color-zinc-900: #141414;
+
   --color-surface: #121214;
   --color-surface-2: #18181b;
   --color-border-soft: #202024;
@@ -31,7 +39,7 @@ body {
      de escritorio, este fondo con un resplandor sutil y una rejilla tenue evita que se
      vea como una tira plana en medio de un rectángulo negro vacío. En el celular no se
      nota (el contenido ocupa todo el ancho visible). */
-  background-color: #09090b;
+  background-color: #0a0a0a;
   background-image:
     radial-gradient(720px 480px at 50% -10%, rgba(217, 164, 65, 0.08), transparent 60%),
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),

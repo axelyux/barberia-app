@@ -167,11 +167,11 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
             </div>
 
             {items.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                <div className="rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                     {emptyLabel}
                 </div>
             ) : (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                     {items.map((item) => (
                         <button
                             key={item.id}
@@ -179,7 +179,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                                 setError("");
                                 setEditingId(item.id);
                             }}
-                            className="flex w-full items-center justify-between gap-2 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                            className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left last:border-b-0"
                         >
                             <div className="min-w-0">
                                 <p className={`truncate text-sm font-bold ${item.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>

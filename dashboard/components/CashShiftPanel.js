@@ -27,7 +27,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
     return (
         <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Turno actual</p>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+            <div className="rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
                 <div className="flex items-center justify-between text-sm">
                     <span className="font-bold text-zinc-100">{openShift.shiftType?.name ?? "Sin turno asignado"}</span>
                     <span className="text-xs text-zinc-500">Abrió {openShift.openedByName}</span>
@@ -43,7 +43,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
             </div>
 
             {canClose ? (
-                <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
+                <div className="mt-3 rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
                     <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Cerrar turno</p>
                     <div className="flex flex-col gap-3">
                         <Field label="Efectivo contado en caja (MXN)">
@@ -63,9 +63,9 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
             ) : null}
 
             <p className="mb-2 mt-4 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Turnos anteriores</p>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 shadow-[var(--shadow-panel)]">
+            <div className="rounded-xl border border-white/10 bg-zinc-900 px-4 shadow-[var(--shadow-panel)]">
                 {shiftHistory.map((s) => (
-                    <div key={s.id} className="border-b border-zinc-800 py-3 text-sm last:border-b-0">
+                    <div key={s.id} className="border-b border-white/10 py-3 text-sm last:border-b-0">
                         <div className="flex items-center justify-between">
                             <span className="font-semibold text-zinc-100">{s.shiftType?.name ?? "Sin turno"}</span>
                             <span
@@ -93,7 +93,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
                     </div>
                 ))}
                 {shiftHistory.length === 0 ? (
-                    <div className="my-4 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    <div className="my-4 rounded-lg border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                         Sin turnos cerrados todavía.
                     </div>
                 ) : null}

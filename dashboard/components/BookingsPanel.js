@@ -172,11 +172,11 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
         <div>
             <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1">
-                    <button onClick={() => shiftDay(-1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-zinc-400">
+                    <button onClick={() => shiftDay(-1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-400">
                         ‹
                     </button>
                     <p className="w-40 text-center text-[12px] font-bold text-zinc-300">{dateLabel(dateISO)}</p>
-                    <button onClick={() => shiftDay(1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 text-zinc-400">
+                    <button onClick={() => shiftDay(1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-400">
                         ›
                     </button>
                 </div>
@@ -187,14 +187,14 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                 ) : null}
             </div>
 
-            <div className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900 px-4 shadow-[var(--shadow-panel)]">
+            <div className="flex flex-col rounded-xl border border-white/10 bg-zinc-900 px-4 shadow-[var(--shadow-panel)]">
                 {bookings.map((b) => {
                     const meta = BOOKING_STATUS_META[b.status];
                     return (
                         <button
                             key={b.id}
                             onClick={() => openDetail(b)}
-                            className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-2.5 border-b border-zinc-800 py-3 text-left last:border-b-0"
+                            className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-2.5 border-b border-white/10 py-3 text-left last:border-b-0"
                         >
                             <span className="font-numeric text-[13px] text-zinc-400">{b.time}</span>
                             <span>
@@ -213,7 +213,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                     );
                 })}
                 {bookings.length === 0 ? (
-                    <div className="my-4 rounded-lg border border-dashed border-zinc-800 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                    <div className="my-4 rounded-lg border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
                         Sin citas agendadas este día.
                     </div>
                 ) : null}
