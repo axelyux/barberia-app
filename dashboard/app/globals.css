@@ -27,7 +27,18 @@ body {
 }
 
 body {
-  background: #09090b;
+  /* El panel es una columna centrada de ancho fijo (mobile-first) — en pantallas anchas
+     de escritorio, este fondo con un resplandor sutil y una rejilla tenue evita que se
+     vea como una tira plana en medio de un rectángulo negro vacío. En el celular no se
+     nota (el contenido ocupa todo el ancho visible). */
+  background-color: #09090b;
+  background-image:
+    radial-gradient(720px 480px at 50% -10%, rgba(217, 164, 65, 0.08), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 34px 34px, 34px 34px;
+  background-position: center top, center, center;
+  background-attachment: fixed;
   color: #f4f4f5;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

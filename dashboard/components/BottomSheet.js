@@ -6,14 +6,14 @@ export default function BottomSheet({ open, onClose, title, subtitle, children }
             <div
                 onClick={onClose}
                 aria-hidden="true"
-                className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+                className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-200 ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
                     }`}
             />
             <div
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
-                className={`fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border-t border-zinc-800 bg-zinc-900 px-5 pb-8 pt-3 shadow-[var(--shadow-sheet)] transition-transform duration-300 ease-[cubic-bezier(.32,.72,0,1)] ${open ? "translate-y-0" : "translate-y-full"
+                className={`fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border-t border-white/10 bg-zinc-900/85 px-5 pb-8 pt-3 shadow-[var(--shadow-sheet)] backdrop-blur-xl backdrop-saturate-150 transition-transform duration-300 ease-[cubic-bezier(.32,.72,0,1)] ${open ? "translate-y-0" : "translate-y-full"
                     }`}
             >
                 <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-zinc-700" />

@@ -10,7 +10,10 @@ export default function LoginForm({ action = login, showTenantField = true }) {
     const [state, formAction, isPending] = useActionState(action, initialState);
 
     return (
-        <form action={formAction} className="flex w-full max-w-xs flex-col gap-3">
+        <form
+            action={formAction}
+            className="flex w-full max-w-xs flex-col gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-6 shadow-[var(--shadow-panel)] backdrop-blur-xl backdrop-saturate-150"
+        >
             {showTenantField ? (
                 <Field label="Barbería">
                     <TextInput name="tenantSlug" type="text" required placeholder="sable-barber-studio" autoComplete="off" />
@@ -26,7 +29,7 @@ export default function LoginForm({ action = login, showTenantField = true }) {
             <button
                 type="submit"
                 disabled={isPending}
-                className="mt-1 flex min-h-11 items-center justify-center rounded-md bg-amber-500 text-sm font-bold text-zinc-950 disabled:opacity-50"
+                className="mt-1 flex min-h-11 items-center justify-center rounded-lg bg-amber-500 text-sm font-bold text-zinc-950 shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] transition-colors hover:bg-amber-400 disabled:opacity-50"
             >
                 {isPending ? "Entrando…" : "Entrar"}
             </button>

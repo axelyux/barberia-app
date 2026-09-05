@@ -159,6 +159,7 @@ export default async function TenantPage({ params }) {
                 tenant={plainTenant}
                 currentUser={plainCurrentUser}
                 perms={permsByModule}
+                botConnected={Boolean(tenant.metaPhoneNumberId && tenant.metaAccessToken)}
                 bookings={plainBookings}
                 sales={plainSales}
                 services={services}

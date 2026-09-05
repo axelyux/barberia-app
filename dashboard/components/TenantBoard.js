@@ -25,6 +25,8 @@ import PushNotificationSetup from "@/components/PushNotificationSetup";
 import { IconToday, IconCatalog, IconSales, IconFinance, IconWorkers, IconBot, IconSettings, IconMore } from "@/components/TabIcons";
 import { money } from "@/lib/format";
 import { createService, updateService, deleteService } from "@/app/t/[slug]/catalog-actions";
+import { useHotkeys } from "@/lib/useHotkeys";
+import BotStatus from "@/components/BotStatus";
 
 // Cada pestaña puede agrupar varias secciones (se ven como bloques separados dentro de la pestaña,
 // no como un solo formulario) para no tener una barra de navegación con muchos íconos en un celular.
@@ -42,6 +44,7 @@ export default function TenantBoard({
     tenant,
     currentUser,
     perms,
+    botConnected = false,
     bookings,
     sales,
     services,
@@ -74,6 +77,25 @@ export default function TenantBoard({
     const isOverflowActive = overflowTabs.some((t) => t.key === activeTab);
     const [moreOpen, setMoreOpen] = useState(false);
 
+    // Atajos de teclado (power user): F2 salta a Agenda y abre "Nueva cita"; F4 salta a
+    // Caja → Ventas y abre "Registrar venta". Cada uno respeta el mismo permiso que ya
+    // oculta el botón correspondiente en pantalla (si no tienes permiso, no hacen nada).
+    const [bookingHotkeySignal, setBookingHotkeySignal] = useState(0);
+    const [saleHotkeySignal, setSaleHotkeySignal] = useState(0);
+    useHotkeys({
+        F2: () => {
+            if (!perms.CITAS.canAdd) return;
+            setTab("hoy");
+            setBookingHotkeySignal((n) => n + 1);
+        },
+        F4: () => {
+            if (!perms.PRODUCTOS.canAdd && !perms.SERVICIOS.canAdd) return;
+            setTab("caja");
+            setCajaSubTab("ventas");
+            setSaleHotkeySignal((n) => n + 1);
+        },
+    });
+
     const completedToday = bookings.filter((b) => b.status === "COMPLETED");
     const servicesRevenue = completedToday.reduce((sum, b) => sum + (b.amountPaidCents ?? 0), 0);
     const todayKey = new Date().toDateString();
@@ -103,7 +125,10 @@ export default function TenantBoard({
                     </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                    <p className="text-[11px] text-zinc-500">{currentUser.name}</p>
+                    <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+                        <BotStatus connected={botConnected} compact />
+                        {currentUser.name}
+                    </div>
                     <LogoutButton />
                 </div>
             </div>
@@ -164,6 +189,7 @@ export default function TenantBoard({
                             slug={tenant.slug}
                             brandColor={brandColor}
                             perms={perms.CITAS}
+                            openCreateSignal={bookingHotkeySignal}
                         />
 
                         {perms.FINANZAS.canView ? (
@@ -257,6 +283,7 @@ export default function TenantBoard({
                                 slug={tenant.slug}
                                 brandColor={brandColor}
                                 perms={salesPerms}
+                                openCreateSignal={saleHotkeySignal}
                             />
                         )}
                     </>
@@ -279,6 +306,7 @@ export default function TenantBoard({
 
                 {activeTab === "bot" ? (
                     <>
+                        <BotStatus connected={botConnected} />
                         <FlowEditor initialMessages={flowMessages} brandColor={brandColor} slug={tenant.slug} perms={perms.BOT} />
                         <IgnoredContactsEditor contacts={ignoredContacts} slug={tenant.slug} brandColor={brandColor} perms={perms.BOT} />
                     </>
@@ -295,7 +323,7 @@ export default function TenantBoard({
                 ) : null}
             </div>
 
-            <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur">
+            <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-white/5 bg-zinc-950/70 shadow-[0_-8px_32px_-8px_rgba(0,0,0,0.5)] backdrop-blur-xl backdrop-saturate-150">
                 <div className="mx-auto flex max-w-[430px] justify-around gap-0.5 px-1 py-1.5">
                     {visibleTabs.map(({ key, label, Icon }) => {
                         const active = activeTab === key;

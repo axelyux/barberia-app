@@ -106,10 +106,20 @@ function CreateBookingForm({ services, barbers, brandStyle, isPending, error, on
     );
 }
 
-export default function BookingsPanel({ initialBookings, services, barbers, slug, brandColor, perms }) {
+export default function BookingsPanel({ initialBookings, services, barbers, slug, brandColor, perms, openCreateSignal }) {
     const [dateISO, setDateISO] = useState(toISODate(new Date()));
     const [bookings, setBookings] = useState(initialBookings);
     const [createOpen, setCreateOpen] = useState(false);
+
+    // Atajo de teclado F2 (ver TenantBoard.js): cada vez que sube este contador, se abre
+    // la hoja de "Nueva cita" — solo si el usuario tiene permiso, igual que el botón.
+    // Patrón "ajustar estado durante el render" (recomendado por React) en vez de un
+    // efecto, para no disparar un setState dentro de un useEffect.
+    const [seenCreateSignal, setSeenCreateSignal] = useState(openCreateSignal);
+    if (openCreateSignal !== seenCreateSignal) {
+        setSeenCreateSignal(openCreateSignal);
+        if (openCreateSignal && perms.canAdd) setCreateOpen(true);
+    }
     const [selectedId, setSelectedId] = useState(null);
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");

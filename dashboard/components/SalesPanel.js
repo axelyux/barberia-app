@@ -367,11 +367,19 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
     );
 }
 
-export default function SalesPanel({ products, services, sales: initialSales, barbers = [], customers = [], slug, brandColor, perms }) {
+export default function SalesPanel({ products, services, sales: initialSales, barbers = [], customers = [], slug, brandColor, perms, openCreateSignal }) {
     const [sales, setSales] = useState(initialSales);
     const [fromDate, setFromDate] = useState(startOf30DaysAgo);
     const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
     const [createOpen, setCreateOpen] = useState(false);
+
+    // Atajo de teclado F4 (ver TenantBoard.js): abre "Registrar venta" si hay permiso.
+    // Patrón "ajustar estado durante el render" en vez de un efecto (ver BookingsPanel.js).
+    const [seenCreateSignal, setSeenCreateSignal] = useState(openCreateSignal);
+    if (openCreateSignal !== seenCreateSignal) {
+        setSeenCreateSignal(openCreateSignal);
+        if (openCreateSignal && (perms.productos.canAdd || perms.servicios.canAdd)) setCreateOpen(true);
+    }
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
