@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Sin conexión — MiBarber</title>
+<style>
+  /* Autocontenido a propósito: esta página la muestra el WebView nativo de la app (y el
+     Service Worker en la web) cuando NO hay internet, así que no puede depender de
+     ninguna fuente, hoja de estilo ni script externo — todo tiene que venir ya cargado
+     dentro del propio archivo/APK. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; min-height: 100%; padding: 32px 24px; text-align: center;
+    background: #0a0a0a; color: #f4f4f5;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  img { width: 72px; height: 72px; border-radius: 16px; box-shadow: 0 8px 24px -8px rgba(0,0,0,.6); }
+  h1 { font-size: 20px; font-weight: 700; margin: 4px 0 0; letter-spacing: -0.01em; }
+  p { font-size: 14px; color: #a1a1aa; margin: 0; max-width: 320px; line-height: 1.5; }
+  button {
+    margin-top: 8px; min-height: 44px; padding: 0 24px; border: none; border-radius: 10px;
+    background: #d9a441; color: #0a0a0a; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  button:active { filter: brightness(0.92); }
+  .dot { display: inline-flex; width: 8px; height: 8px; border-radius: 999px; background: #71717a; margin-right: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+  <img src="icon-512.png" alt="" />
+  <h1>Sin conexión a internet</h1>
+  <p><span class="dot"></span>No pudimos cargar MiBarber. Revisa tu WiFi o datos móviles e inténtalo de nuevo.</p>
+  <button onclick="location.reload()">Reintentar</button>
+</body>
+</html>
