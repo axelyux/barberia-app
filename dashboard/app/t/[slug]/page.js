@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import TenantBoard from "@/components/TenantBoard";
@@ -16,8 +17,19 @@ export default async function TenantPage({ params }) {
     const tenant = await prisma.tenant.findUnique({ where: { slug } });
     if (!tenant) notFound();
 
+    // El super-admin pudo haber desactivado esta barbería mientras alguien la tenía
+    // abierta — se corta el acceso en la primera carga de página siguiente (no hace
+    // falta que cierren sesión ellos mismos), con un mensaje específico en el login.
+    if (tenant.status === "PAUSED") redirect("/login?reason=suspended");
+
     const sessionUser = await getSessionUser();
-    if (!sessionUser || sessionUser.tenantId !== tenant.id) redirect("/login");
+    if (!sessionUser || sessionUser.tenantId !== tenant.id) {
+        // Si traía una cookie de sesión pero ya no es válida (usuario desactivado,
+        // contraseña cambiada, o simplemente venció), se lo decimos explícito en vez
+        // de mandarlo a un login "en blanco" como si nunca hubiera entrado.
+        const hadSession = (await cookies()).has("barber_session");
+        redirect(hadSession ? "/login?reason=expired" : "/login");
+    }
 
     const permsByModule = Object.fromEntries(
         MODULES.map((m) => [m, sessionUser.permissions.find((p) => p.module === m) ?? EMPTY_PERM])
@@ -116,6 +128,8 @@ export default async function TenantPage({ params }) {
         logoUrl: tenant.logoUrl,
         brandColor: tenant.brandColor,
         bookingMinNoticeMin: tenant.bookingMinNoticeMin,
+        status: tenant.status,
+        nextDueDate: tenant.nextDueDate ? tenant.nextDueDate.toISOString() : null,
     };
     const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
     const plainCustomer = (c) =>

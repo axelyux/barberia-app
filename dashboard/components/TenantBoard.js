@@ -113,6 +113,23 @@ export default function TenantBoard({
     const brandColor = tenant.brandColor;
     const salesPerms = { productos: perms.PRODUCTOS, servicios: perms.SERVICIOS };
 
+    // Aviso de vencimiento de plan: rojo si ya está vencido (PAST_DUE), amarillo si
+    // faltan 5 días o menos para vencer y sigue activo. Un tenant PAUSED nunca llega
+    // aquí (se corta desde page.js), así que ese estado no necesita aviso propio.
+    const daysUntilDue = tenant.nextDueDate ? Math.ceil((new Date(tenant.nextDueDate) - new Date()) / (24 * 60 * 60 * 1000)) : null;
+    const billingNotice =
+        tenant.status === "PAST_DUE"
+            ? { tone: "bad", text: "Tu plan con MiBarber está vencido. Regulariza tu pago para evitar que se pause el servicio." }
+            : tenant.status === "ACTIVE" && daysUntilDue !== null && daysUntilDue <= 5
+              ? {
+                    tone: "warn",
+                    text:
+                        daysUntilDue <= 0
+                            ? "Tu plan con MiBarber vence hoy."
+                            : `Tu plan con MiBarber vence en ${daysUntilDue} día${daysUntilDue === 1 ? "" : "s"}.`,
+                }
+              : null;
+
     return (
         <div className="mx-auto flex max-w-[430px] flex-col">
             <PushNotificationSetup />
@@ -132,6 +149,18 @@ export default function TenantBoard({
                     <LogoutButton />
                 </div>
             </div>
+
+            {billingNotice ? (
+                <div className="px-4 pb-2">
+                    <div
+                        className={`rounded-lg border px-3.5 py-2.5 text-[13px] font-semibold ${
+                            billingNotice.tone === "bad" ? "border-red-800/40 bg-red-500/10 text-red-300" : "border-orange-800/40 bg-orange-500/10 text-orange-300"
+                        }`}
+                    >
+                        {billingNotice.text}
+                    </div>
+                </div>
+            ) : null}
 
             <div className="flex flex-col gap-4 px-4 pb-28 pt-2">
                 {allowedTabs.length === 0 ? (

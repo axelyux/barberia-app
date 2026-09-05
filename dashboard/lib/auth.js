@@ -90,6 +90,12 @@ export async function requireTenantSession(slug, moduleKey, action) {
     if (!slug || user.tenant?.slug !== slug) {
         throw new Error("No tienes acceso a esta barbería.");
     }
+    // El super-admin pudo haber pausado esta barbería DESPUÉS de que este usuario ya
+    // tenía la página abierta — bloquea cualquier acción a partir de ahí, no solo la
+    // siguiente carga de página (ver también /t/[slug]/page.js).
+    if (user.tenant.status === "PAUSED") {
+        throw new Error("Esta barbería fue desactivada. Contacta a tu administrador.");
+    }
     if (moduleKey) {
         const perm = user.permissions.find((p) => p.module === moduleKey);
         const field = { view: "canView", add: "canAdd", edit: "canEdit", delete: "canDelete" }[action];

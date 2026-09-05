@@ -27,6 +27,12 @@ export async function login(prevState, formData) {
         return { error: "Barbería, usuario o contraseña incorrectos." };
     }
 
+    // Las credenciales son correctas, pero el super-admin desactivó esta barbería — se
+    // le dice explícito en vez de dejarlo entrar o darle el mismo error genérico.
+    if (user.tenant.status === "PAUSED") {
+        return { error: "Esta barbería fue desactivada. Contacta a tu administrador." };
+    }
+
     await clearAttempts(rateLimitKey);
     await createSession(user.id, user.sessionVersion);
     redirect(`/t/${user.tenant.slug}`);
