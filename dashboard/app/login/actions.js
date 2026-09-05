@@ -36,3 +36,17 @@ export async function logout() {
     await destroySession();
     redirect("/login");
 }
+
+// Color/logo de marca de una barbería por su slug, para pintar el botón de "Entrar" del
+// login con el color que esa barbería configuró (en vez del ámbar por defecto) — no es
+// información sensible (ya se ve en los mensajes de WhatsApp del bot), así que no
+// requiere sesión. Se usa solo para la vista previa mientras el usuario escribe.
+export async function getTenantBrand(slug) {
+    const tenantSlug = String(slug ?? "").trim().toLowerCase();
+    if (!tenantSlug) return null;
+    const tenant = await prisma.tenant.findUnique({
+        where: { slug: tenantSlug },
+        select: { name: true, brandColor: true, logoUrl: true },
+    });
+    return tenant;
+}
