@@ -1,8 +1,8 @@
 # Panel de Sable Barber Studio (Next.js)
 
 Panel SaaS multi-tenant para barberías. Server Components + Server Actions, Prisma
-sobre PostgreSQL (Supabase en producción). El bot de WhatsApp vive fuera de este
-proyecto (raíz del repo) y corre en un VPS aparte — ver la sección de despliegue.
+sobre PostgreSQL (Supabase en producción). El bot de WhatsApp (API oficial de Meta)
+también corre aquí mismo, como parte de este proyecto — sin VPS, sin proceso aparte.
 
 ## Desarrollo local
 
@@ -44,12 +44,36 @@ Abre [http://localhost:3001](http://localhost:3001).
    la lista completa: `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`, `META_VERIFY_TOKEN`,
    `CRON_SECRET`, `BILLING_GRACE_DAYS`, `NEXT_PUBLIC_APP_URL`, `FIREBASE_SERVICE_ACCOUNT`
    (opcional).
-4. Deploy. El cron de `vercel.json` (`/api/cron/tenant-billing`, diario) se activa solo.
+4. Deploy. Los crons de `vercel.json` se activan solos.
 
-### 3. VPS / Oracle Cloud (bot de WhatsApp — PM2)
+### 3. WhatsApp (Meta Cloud API — corre en el mismo Vercel, sin VPS)
 
-El bot **no** va en Vercel (necesita un proceso persistente). Desde la raíz del repo en
-el VPS:
+El bot vive en `dashboard/lib/whatsapp-flow.js` + `dashboard/app/api/whatsapp/webhook`,
+como una función serverless más de este proyecto — no hay proceso que mantener prendido
+en ningún lado, ni IP fija, ni PM2. El progreso de cada conversación se guarda en la
+tabla `ConversationState` (Postgres), no en memoria.
+
+**Configuración en el panel de Meta** (developers.facebook.com → tu App → WhatsApp →
+Configuración → Webhooks):
+- **Callback URL**: `https://<tu-dominio>.vercel.app/api/whatsapp/webhook`
+- **Verify token**: el mismo valor que pusiste en `META_VERIFY_TOKEN` en Vercel.
+
+**Por cada barbería**, guarda en su fila de `Tenant` (Supabase): `metaPhoneNumberId`,
+`metaAccessToken` (permanente, no el de 24h de prueba) y `bookingMinNoticeMin`. No hace
+falta `metaPort` para esta ruta (esa columna solo la usa el camino alternativo por VPS,
+más abajo).
+
+**Recordatorios de citas** (aviso ~1h antes): la ruta `/api/cron/whatsapp-reminders`
+necesita dispararse cada 5 minutos. El cron de `vercel.json` ya lo intenta, pero el plan
+Hobby de Vercel puede limitar la frecuencia de sus propios crons a 1 vez al día — si ves
+que no llegan recordatorios a tiempo, usa un cron externo gratuito (ej.
+[cron-job.org](https://cron-job.org)) apuntando cada 5 min a esa URL con el header
+`Authorization: Bearer <CRON_SECRET>`.
+
+**Camino alternativo (VPS/PM2), si algún día lo prefieres en vez de Vercel** — por
+ejemplo si vuelves a Baileys, que sí necesita un proceso persistente: `app.js`,
+`whatsapp-meta-bot.js`, `webhook-router.js` y `ecosystem.config.cjs` siguen en el repo,
+marcados como opcionales. Desde la raíz del repo en el VPS:
 
 ```bash
 npm install
@@ -57,15 +81,6 @@ cp .env.example .env   # DATABASE_URL (mismo Supabase), META_VERIFY_TOKEN, ROUTE
 pm2 start ecosystem.config.cjs
 pm2 save
 ```
-
-`ecosystem.config.cjs` levanta `webhook-router.js` (única URL pública para Meta) y un
-proceso `whatsapp-meta-bot.js` por barbería ya vinculada a la Cloud API. Para dar de
-alta una barbería nueva, agrega otra entrada en ese archivo con su propio
-`METATENANT_SLUG` y corre `pm2 reload ecosystem.config.cjs`.
-
-En el panel de Meta (developers.facebook.com), la URL de webhook apunta al puerto
-público de `webhook-router.js` (detrás de tu proxy/dominio del VPS), con el mismo
-`META_VERIFY_TOKEN` de ambos `.env`.
 
 ### 4. Android (Capacitor)
 

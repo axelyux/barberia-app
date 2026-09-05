@@ -1,3 +1,8 @@
+// ⚠️ OPCIONAL — ya no hace falta ningún VPS para operar. El bot de WhatsApp corre por
+// defecto en Vercel (dashboard/app/api/whatsapp/webhook), igual que el panel. Este
+// archivo se conserva solo por si en algún momento prefieres correr el bot en tu propio
+// VPS en vez de Vercel.
+//
 // Configuración de PM2 para el VPS (Oracle Cloud) — SOLO el bot de WhatsApp corre aquí.
 // El panel/dashboard se despliega aparte en Vercel; ver dashboard/README.md.
 //

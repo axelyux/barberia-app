@@ -1,3 +1,8 @@
+// ⚠️ RUTA OPCIONAL (VPS/PM2) — ya NO es necesaria para operar.
+// El webhook de WhatsApp corre por defecto en Vercel: dashboard/app/api/whatsapp/webhook.
+// Este archivo se conserva por si en algún momento prefieres correr el bot en tu propio
+// VPS en vez de Vercel (ej. para volver a Baileys, que sí necesita un proceso fijo).
+//
 // Único punto de entrada público para el webhook de WhatsApp (Meta solo permite
 // UNA url de callback por App). Recibe todo el tráfico, mira a qué número de
 // teléfono llegó cada mensaje (phone_number_id), busca a qué barbería

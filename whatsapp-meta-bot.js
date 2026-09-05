@@ -1,3 +1,8 @@
+// ⚠️ RUTA OPCIONAL (VPS/PM2) — ya NO es necesaria para operar.
+// El bot corre por defecto en Vercel (dashboard/lib/whatsapp-flow.js +
+// dashboard/app/api/whatsapp/webhook), sin proceso persistente. Este archivo se
+// conserva como camino alternativo si prefieres correrlo en tu propio VPS.
+//
 // Proceso de UNA barbería usando la Cloud API oficial de Meta, en vez de Baileys.
 // Se identifica por METATENANT_SLUG (no TENANT_SLUG, para no chocar con app.js/Baileys
 // si algún día ambos corren en la misma máquina durante una migración gradual).
