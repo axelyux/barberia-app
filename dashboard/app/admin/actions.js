@@ -153,6 +153,21 @@ export async function updateTenantWhatsapp(tenantId, { whatsappNumber, metaPhone
     revalidatePath("/admin");
 }
 
+// Borra la barbería y TODO lo que le pertenece (usuarios, citas, ventas, mensajes de
+// WhatsApp, etc. — todas las relaciones de Tenant tienen onDelete: Cascade). Es
+// irreversible, por eso el nombre a confirmar se pide desde el panel antes de llamar esto.
+export async function deleteTenant(tenantId, confirmName) {
+    await requireSuperAdmin();
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new Error("Barbería no encontrada");
+    if (confirmName?.trim() !== tenant.name) {
+        throw new Error("El nombre no coincide — escribe exactamente el nombre de la barbería para confirmar.");
+    }
+
+    await prisma.tenant.delete({ where: { id: tenantId } });
+    revalidatePath("/admin");
+}
+
 export async function suspendTenant(tenantId) {
     await requireSuperAdmin();
     await prisma.tenant.update({ where: { id: tenantId }, data: { status: "PAUSED" } });

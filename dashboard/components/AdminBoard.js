@@ -8,7 +8,7 @@ import SheetButton from "@/components/SheetButton";
 import Avatar from "@/components/Avatar";
 import { Field, TextInput, NumberInput, ColorPicker, ImagePicker } from "@/components/FormField";
 import { money, shortDate, toDateInputValue, TENANT_STATUS_META } from "@/lib/format";
-import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant, updateTenantWhatsapp } from "@/app/admin/actions";
+import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant, updateTenantWhatsapp, deleteTenant } from "@/app/admin/actions";
 import { logoutAdmin } from "@/app/admin/login/actions";
 
 const FILTERS = [
@@ -131,7 +131,45 @@ function WhatsappLinkForm({ tenant }) {
     );
 }
 
-function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspend, onReactivate }) {
+// Borrar una barbería es irreversible (se lleva usuarios, citas, ventas, mensajes — todo).
+// Pedir que se escriba el nombre exacto es la misma fricción que "escribe DELETE para
+// confirmar" de otros paneles: evita un clic accidental en algo que no se puede deshacer.
+function DeleteTenantForm({ tenant, onDeleted }) {
+    const [confirmText, setConfirmText] = useState("");
+    const [error, setError] = useState("");
+    const [isPending, startTransition] = useTransition();
+
+    const matches = confirmText.trim() === tenant.name;
+
+    const remove = () => {
+        setError("");
+        startTransition(async () => {
+            try {
+                await deleteTenant(tenant.id, confirmText);
+                onDeleted();
+            } catch (err) {
+                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+            }
+        });
+    };
+
+    return (
+        <div className="mt-3 flex flex-col gap-2 border-t border-red-900/40 pt-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-red-400">Zona peligrosa</p>
+            <p className="text-xs text-zinc-500">
+                Borra la barbería y todo lo suyo (usuarios, citas, ventas, chats) para siempre. Escribe{" "}
+                <b className="text-zinc-300">{tenant.name}</b> para confirmar.
+            </p>
+            <TextInput value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={tenant.name} />
+            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            <SheetButton variant="danger" disabled={isPending || !matches} onClick={remove}>
+                Eliminar barbería para siempre
+            </SheetButton>
+        </div>
+    );
+}
+
+function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspend, onReactivate, onDeleted }) {
     const [form, setForm] = useState(() => tenantToForm(tenant));
 
     return (
@@ -184,6 +222,8 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
                     </SheetButton>
                 )}
             </div>
+
+            <DeleteTenantForm tenant={tenant} onDeleted={onDeleted} />
         </>
     );
 }
@@ -380,6 +420,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                         onMarkPaid={() => runAction(() => markTenantPaid(selected.id))}
                         onSuspend={() => runAction(() => suspendTenant(selected.id))}
                         onReactivate={() => runAction(() => reactivateTenant(selected.id))}
+                        onDeleted={() => setSelectedId(null)}
                     />
                 ) : null}
             </BottomSheet>
