@@ -16,7 +16,7 @@ import {
     formatMinutesLabel,
     FALLBACK_HOURS,
 } from "@/lib/scheduling";
-import { parseTimeText, parseDayChoice, matchServiceChoice, findCatalogMatch } from "../../lib/parsing.js";
+import { parseTimeText, parseDayChoice, matchServiceChoice, matchBarberChoice, findCatalogMatch } from "../../lib/parsing.js";
 
 const stripAccents = (s) =>
     String(s ?? "")
@@ -176,6 +176,12 @@ async function askServiceStep(tenant, from) {
     await setStep(tenant.id, from, "ask_service", {});
 }
 
+async function askDayStep(tenant, from, data) {
+    const askDay = await getFlowMessage(tenant.id, "BOOKING_ASK_DAY", "📅 ¿Para cuándo la quieres?");
+    await sendButtons(tenant, from, askDay, [{ body: "Hoy" }, { body: "Mañana" }]);
+    await setStep(tenant.id, from, "ask_day", data);
+}
+
 async function handleServiceCapture(tenant, from, body) {
     const services = await prisma.service.findMany({ where: { tenantId: tenant.id, active: true }, orderBy: { sortOrder: "asc" } });
     const service = matchServiceChoice(body, services);
@@ -184,9 +190,42 @@ async function handleServiceCapture(tenant, from, body) {
         return;
     }
     const data = { serviceId: service.id, serviceName: service.name, durationMin: service.durationMin, priceCents: service.priceCents };
-    const askDay = await getFlowMessage(tenant.id, "BOOKING_ASK_DAY", "📅 ¿Para cuándo la quieres?");
-    await sendButtons(tenant, from, askDay, [{ body: "Hoy" }, { body: "Mañana" }]);
-    await setStep(tenant.id, from, "ask_day", data);
+
+    // Con un solo barbero activo no hace falta preguntar — se asigna directo. Con 2+, se le
+    // pregunta al cliente (o "cualquiera"), para que dos barberos puedan atender clientes
+    // distintos a la misma hora sin que el bot marque falso choque de horario.
+    const barbers = await prisma.barber.findMany({ where: { tenantId: tenant.id, active: true }, orderBy: { name: "asc" } });
+    if (barbers.length === 1) {
+        return askDayStep(tenant, from, { ...data, barberId: barbers[0].id, barberName: barbers[0].name });
+    }
+    if (barbers.length === 0) {
+        return askDayStep(tenant, from, data);
+    }
+
+    await sendList(tenant, from, {
+        body: "💇 ¿Con cuál barbero te gustaría tu cita?",
+        buttonLabel: "Ver barberos",
+        sections: [
+            {
+                title: "Barberos",
+                rows: [
+                    ...barbers.slice(0, 9).map((b) => ({ id: `brb_${b.id}`, title: b.name.slice(0, 24) })),
+                    { id: "brb_any", title: "Cualquiera disponible" },
+                ],
+            },
+        ],
+    });
+    await setStep(tenant.id, from, "ask_barber", data);
+}
+
+async function handleBarberCapture(tenant, from, body, data) {
+    const barbers = await prisma.barber.findMany({ where: { tenantId: tenant.id, active: true }, orderBy: { name: "asc" } });
+    const choice = matchBarberChoice(body, barbers);
+    if (choice === undefined) {
+        await sendText(tenant, from, "No reconocí a ese barbero. Responde con el número de la lista.");
+        return;
+    }
+    await askDayStep(tenant, from, choice ? { ...data, barberId: choice.id, barberName: choice.name } : data);
 }
 
 async function handleDayCapture(tenant, from, body, data) {
@@ -210,6 +249,7 @@ async function handleDayCapture(tenant, from, body, data) {
     const slots = buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, {
         minNoticeMin: tenant.bookingMinNoticeMin,
         maxSlots: 10,
+        barberId: data.barberId ?? null,
     });
     if (slots.length === 0) {
         await sendText(
@@ -264,6 +304,7 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
         scheduledAt,
         durationMin: data.durationMin,
         minNoticeMin: tenant.bookingMinNoticeMin,
+        barberId: data.barberId ?? null,
     });
     if (!check.ok) {
         const suggestion = check.alternatives?.length
@@ -277,7 +318,7 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
 }
 
 async function finalizeBooking(tenant, from, data, pushName) {
-    const { serviceId, serviceName, priceCents, durationMin, scheduledAt } = data;
+    const { serviceId, serviceName, priceCents, durationMin, scheduledAt, barberId, barberName } = data;
     const when = new Date(scheduledAt);
 
     try {
@@ -289,6 +330,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
                     scheduledAt: when,
                     durationMin,
                     minNoticeMin: tenant.bookingMinNoticeMin,
+                    barberId: barberId ?? null,
                 });
                 if (!check.ok) throw new Error("SLOT_TAKEN");
 
@@ -300,6 +342,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
                         customerName: pushName?.trim() || customer.name,
                         customerId: customer.id,
                         serviceId: serviceId ?? undefined,
+                        barberId: barberId ?? undefined,
                         durationMin,
                         priceChargedCents: priceCents ?? undefined,
                         scheduledAt: when,
@@ -324,6 +367,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
     await clearStep(tenant.id, from);
     const confirmText = await getFlowMessage(tenant.id, "BOOKING_CONFIRMED", "Te esperamos.");
     const serviceLine = serviceName ? `💈 Servicio: ${serviceName} — ${centsToText(priceCents)}` : null;
+    const barberLine = barberName ? `✂️ Barbero: ${barberName}` : null;
     await sendText(
         tenant,
         from,
@@ -333,6 +377,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
             `📅 Día: ${when.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}`,
             `🕒 Hora: ${formatTime12h(when)}`,
             ...(serviceLine ? [serviceLine] : []),
+            ...(barberLine ? [barberLine] : []),
             "",
             confirmText,
         ].join("\n")
@@ -419,6 +464,7 @@ export async function handleIncomingMessage({ tenant, from, body, pushName }) {
 
     const state = await getStep(tenant.id, from);
     if (state?.step === "ask_service") return handleServiceCapture(tenant, from, body);
+    if (state?.step === "ask_barber") return handleBarberCapture(tenant, from, body, state.data);
     if (state?.step === "ask_day") return handleDayCapture(tenant, from, body, state.data);
     if (state?.step === "ask_time") return handleTimeCapture(tenant, from, body, state.data, pushName);
 

@@ -16,10 +16,13 @@ export default async function AdminPage() {
         .reduce((sum, t) => sum + t.planPriceCents, 0);
 
     // Los Server Components no pueden pasar objetos Date a un Client Component sin serializar.
-    const plainTenants = tenants.map((t) => ({
+    // metaAccessToken es un secreto (permite mandar WhatsApp a nombre de la barbería) — nunca
+    // se manda al navegador, solo un booleano de "ya tiene uno guardado o no".
+    const plainTenants = tenants.map(({ metaAccessToken, ...t }) => ({
         ...t,
         nextDueDate: t.nextDueDate ? t.nextDueDate.toISOString() : null,
         createdAt: t.createdAt.toISOString(),
+        hasMetaToken: !!metaAccessToken,
     }));
 
     return (

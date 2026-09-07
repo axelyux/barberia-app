@@ -8,7 +8,7 @@ import SheetButton from "@/components/SheetButton";
 import Avatar from "@/components/Avatar";
 import { Field, TextInput, NumberInput, ColorPicker, ImagePicker } from "@/components/FormField";
 import { money, shortDate, toDateInputValue, TENANT_STATUS_META } from "@/lib/format";
-import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant } from "@/app/admin/actions";
+import { markTenantPaid, suspendTenant, reactivateTenant, createTenant, updateTenant, updateTenantWhatsapp } from "@/app/admin/actions";
 import { logoutAdmin } from "@/app/admin/login/actions";
 
 const FILTERS = [
@@ -81,6 +81,56 @@ function TenantFormFields({ form, setForm }) {
     );
 }
 
+// Conexión del bot (API oficial de Meta) + teléfono de contacto para cobros — separado del
+// resto de datos de la barbería porque metaAccessToken es un secreto: el servidor nunca lo
+// manda de vuelta al navegador, así que "en blanco" aquí significa "no lo toques", no "bórralo".
+function WhatsappLinkForm({ tenant }) {
+    const [whatsappNumber, setWhatsappNumber] = useState(tenant.whatsappNumber ?? "");
+    const [metaPhoneNumberId, setMetaPhoneNumberId] = useState(tenant.metaPhoneNumberId ?? "");
+    const [metaAccessToken, setMetaAccessToken] = useState("");
+    const [error, setError] = useState("");
+    const [savedAt, setSavedAt] = useState(null);
+    const [isPending, startTransition] = useTransition();
+
+    const save = () => {
+        setError("");
+        startTransition(async () => {
+            try {
+                await updateTenantWhatsapp(tenant.id, { whatsappNumber, metaPhoneNumberId, metaAccessToken });
+                setMetaAccessToken("");
+                setSavedAt(new Date());
+            } catch (err) {
+                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+            }
+        });
+    };
+
+    return (
+        <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Bot de WhatsApp (Meta Cloud API)</p>
+            <Field label="Phone Number ID (de Meta)">
+                <TextInput value={metaPhoneNumberId} onChange={(e) => setMetaPhoneNumberId(e.target.value)} placeholder="Ej. 135138852..." />
+            </Field>
+            <Field label="Access Token permanente (déjalo vacío para no cambiarlo)">
+                <TextInput
+                    type="password"
+                    value={metaAccessToken}
+                    onChange={(e) => setMetaAccessToken(e.target.value)}
+                    placeholder={tenant.hasMetaToken ? "•••••••• (ya configurado)" : "Aún no configurado"}
+                />
+            </Field>
+            <Field label="Teléfono de contacto (para cobrarle por WhatsApp, no es el del bot)">
+                <TextInput value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} placeholder="Ej. 5218331234567" />
+            </Field>
+            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            <SheetButton variant="ghost" disabled={isPending} onClick={save}>
+                Guardar conexión de WhatsApp
+            </SheetButton>
+            {savedAt ? <p className="text-center text-[11px] text-emerald-500">Guardado.</p> : null}
+        </div>
+    );
+}
+
 function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspend, onReactivate }) {
     const [form, setForm] = useState(() => tenantToForm(tenant));
 
@@ -88,12 +138,9 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
         <>
             <TenantFormFields form={form} setForm={setForm} />
 
-            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3 text-[13.5px]">
-                <span className="text-zinc-400">WhatsApp</span>
-                <span className="font-numeric font-semibold text-zinc-100">{tenant.whatsappNumber ?? "Pendiente de vincular"}</span>
-            </div>
+            <WhatsappLinkForm tenant={tenant} />
 
-            {error ? <p className="mb-2 text-sm text-red-400">{error}</p> : null}
+            {error ? <p className="mb-2 mt-3 text-sm text-red-400">{error}</p> : null}
 
             <div className="mt-2 flex flex-col gap-2">
                 <SheetButton
@@ -277,7 +324,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                                     </span>
                                                 ) : null}
                                             </span>
-                                            {!t.whatsappNumber ? <span className="text-orange-400">Pendiente de vincular</span> : null}
+                                            {!t.metaPhoneNumberId ? <span className="text-orange-400">Bot sin conectar</span> : null}
                                         </div>
                                     </div>
                                 </button>
@@ -295,7 +342,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                         </a>
                                     ) : (
                                         <span className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-white/10 bg-zinc-800/30 text-sm text-zinc-600">
-                                            Sin WhatsApp
+                                            Sin teléfono de cobro
                                         </span>
                                     )}
                                     <button

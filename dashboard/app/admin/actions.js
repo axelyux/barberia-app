@@ -125,6 +125,34 @@ export async function markTenantPaid(tenantId) {
     revalidatePath("/admin");
 }
 
+// Datos de conexión al bot de WhatsApp (API oficial de Meta). Están separados de
+// updateTenant() porque metaAccessToken es un secreto: el panel nunca lo manda de vuelta
+// al navegador, así que aquí "dejar en blanco" significa "no lo toques", no "bórralo".
+export async function updateTenantWhatsapp(tenantId, { whatsappNumber, metaPhoneNumberId, metaAccessToken }) {
+    await requireSuperAdmin();
+
+    const onlyDigits = (v) => String(v ?? "").replace(/\D/g, "");
+    const cleanPhoneNumberId = String(metaPhoneNumberId ?? "").trim();
+
+    try {
+        await prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+                whatsappNumber: whatsappNumber ? onlyDigits(whatsappNumber) || null : null,
+                metaPhoneNumberId: cleanPhoneNumberId || null,
+                ...(metaAccessToken?.trim() ? { metaAccessToken: metaAccessToken.trim() } : {}),
+            },
+        });
+    } catch (err) {
+        if (err?.code === "P2002") {
+            throw new Error("Ese número ya está vinculado a otra barbería — cada número solo puede pertenecer a una.");
+        }
+        throw err;
+    }
+
+    revalidatePath("/admin");
+}
+
 export async function suspendTenant(tenantId) {
     await requireSuperAdmin();
     await prisma.tenant.update({ where: { id: tenantId }, data: { status: "PAUSED" } });

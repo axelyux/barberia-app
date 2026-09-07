@@ -73,7 +73,7 @@ export function meetsMinimumNotice(candidateStart, minNoticeMin = 0, now = new D
 // Horarios libres del día, ya filtrados por horario de atención, citas existentes y
 // anticipación mínima. Se usa para ofrecerle botones al cliente en vez de texto libre.
 export function buildAvailableSlots(dayStart, durationMin, existingBookings, dayHours = FALLBACK_HOURS, options = {}) {
-    const { stepMin = 30, maxSlots = 3, minNoticeMin = 0, now = new Date() } = options;
+    const { stepMin = 30, maxSlots = 3, minNoticeMin = 0, now = new Date(), barberId = null } = options;
     if (!dayHours || dayHours.isClosed) return [];
 
     const slots = [];
@@ -82,7 +82,7 @@ export function buildAvailableSlots(dayStart, durationMin, existingBookings, day
         const candidate = new Date(dayStart);
         candidate.setHours(0, m, 0, 0);
         if (!meetsMinimumNotice(candidate, minNoticeMin, now)) continue;
-        if (findConflict(candidate, duration, existingBookings)) continue;
+        if (findConflict(candidate, duration, existingBookings, null, barberId)) continue;
         slots.push(candidate);
     }
     return slots;
