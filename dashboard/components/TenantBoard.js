@@ -28,6 +28,7 @@ import { createService, updateService, deleteService } from "@/app/t/[slug]/cata
 import { useHotkeys } from "@/lib/useHotkeys";
 import { getBillingNotice } from "@/lib/billing";
 import BotStatus from "@/components/BotStatus";
+import ChatInbox from "@/components/ChatInbox";
 
 // Cada pestaña puede agrupar varias secciones (se ven como bloques separados dentro de la pestaña,
 // no como un solo formulario) para no tener una barra de navegación con muchos íconos en un celular.
@@ -324,6 +325,7 @@ export default function TenantBoard({
                 {activeTab === "bot" ? (
                     <>
                         <BotStatus connected={botConnected} />
+                        <ChatInbox slug={tenant.slug} brandColor={brandColor} perms={perms.BOT} />
                         <FlowEditor initialMessages={flowMessages} brandColor={brandColor} slug={tenant.slug} perms={perms.BOT} />
                         <IgnoredContactsEditor contacts={ignoredContacts} slug={tenant.slug} brandColor={brandColor} perms={perms.BOT} />
                     </>

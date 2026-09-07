@@ -145,6 +145,7 @@ model Tenant {
   shiftTypes       ShiftType[]
   cashShifts       CashShift[]
   conversationStates ConversationState[]
+  whatsappMessages   WhatsappMessage[]
 }
 
 // Progreso de una conversación de WhatsApp en curso, para no perderlo si el proceso del
@@ -152,17 +153,38 @@ model Tenant {
 // flujo de agendado; flowBienvenida la revisa al recibir un nuevo mensaje del mismo
 // teléfono. Filas con más de un par de horas de antigüedad se consideran vencidas.
 model ConversationState {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  phone     String
-  step      String? // ej. "ask_day", "ask_time", "done"
-  data      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone      String
+  step       String? // ej. "ask_day", "ask_time", "done"
+  data       Json      @default("{}")
+  // Mientras esta fecha esté en el futuro, el bot deja de contestarle automático a este
+  // cliente — se activa cuando el cliente pide hablar con una persona, o cuando un
+  // usuario del staff le contesta manual desde la bandeja de chat (ver ChatInbox.js).
+  humanUntil DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@unique([tenantId, phone])
   @@index([tenantId, updatedAt])
+}
+
+// Historial de mensajes de WhatsApp (entrantes y salientes) para la bandeja de chat del
+// panel — antes de esto, el bot procesaba cada mensaje pero no quedaba ningún registro
+// de la conversación en ningún lado visible para el dueño de la barbería.
+model WhatsappMessage {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone      String
+  direction  String // "in" (del cliente) | "out" (del bot o de un humano del staff)
+  body       String
+  sentByName String? // nombre del usuario del staff si un humano lo mandó; null = lo mandó el bot
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, phone, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 // Tipos de turno configurables por barbería (ej. "Mañana", "Tarde", "Día completo").

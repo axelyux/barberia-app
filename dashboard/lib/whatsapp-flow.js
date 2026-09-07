@@ -5,7 +5,8 @@
 // cada mensaje, nunca en memoria — así no hace falta un proceso que se quede prendido.
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { sendText, sendButtons, sendList } from "@/lib/whatsapp-graph";
+import { sendText as sendTextRaw, sendButtons as sendButtonsRaw, sendList as sendListRaw } from "@/lib/whatsapp-graph";
+import { notifyHumanRequested } from "@/lib/push";
 import {
     validateBookingAvailability,
     buildAvailableSlots,
@@ -38,6 +39,37 @@ const normalizePhone = (phone) => {
     else if (digits.startsWith("52") && digits.length === 12) digits = digits.slice(2);
     return digits;
 };
+
+async function logMessage(tenantId, phone, direction, body, sentByName) {
+    try {
+        await prisma.whatsappMessage.create({
+            data: {
+                tenantId,
+                phone: normalizePhone(phone),
+                direction,
+                body: String(body ?? "").slice(0, 4000),
+                sentByName: sentByName?.trim() || null,
+            },
+        });
+    } catch (err) {
+        console.error("❌ [whatsapp-flow] No se pudo registrar el mensaje:", err);
+    }
+}
+
+async function sendText(tenant, to, text) {
+    await sendTextRaw(tenant, to, text);
+    await logMessage(tenant.id, to, "OUT", text);
+}
+
+async function sendButtons(tenant, to, text, buttons) {
+    await sendButtonsRaw(tenant, to, text, buttons);
+    await logMessage(tenant.id, to, "OUT", text);
+}
+
+async function sendList(tenant, to, opts) {
+    await sendListRaw(tenant, to, opts);
+    await logMessage(tenant.id, to, "OUT", opts?.body);
+}
 
 async function findOrCreateCustomer(tx, tenantId, phone, name) {
     const normalized = normalizePhone(phone);
@@ -317,6 +349,17 @@ const SERVICES_KEYWORDS = ["servicios", "precios", "catalogo"];
 const PRICE_KEYWORDS = ["cuanto cuesta", "cuanto vale", "costo de", "precio de", "que precio tiene"];
 const CONTACT_KEYWORDS = ["contacto", "ayuda", "asesor"];
 const BOOKING_KEYWORDS = ["agendar", "cita", "reservar"];
+const HUMAN_HANDOFF_KEYWORDS = [
+    "hablar con alguien",
+    "hablar con una persona",
+    "hablar con un humano",
+    "persona real",
+    "agente humano",
+    "necesito un humano",
+    "quiero hablar con alguien",
+    "quiero hablar con una persona",
+];
+const HUMAN_TAKEOVER_MS = 2 * 60 * 60 * 1000;
 
 async function replyWelcome(tenant, from) {
     const { open, hoursText } = await checkOpenNow(tenant.id);
@@ -340,6 +383,8 @@ async function replyWelcome(tenant, from) {
 // --- Punto de entrada ---
 
 export async function handleIncomingMessage({ tenant, from, body, pushName }) {
+    await logMessage(tenant.id, from, "IN", body, pushName);
+
     if (tenant.status === "PAUSED") {
         await sendText(tenant, from, PAUSED_NOTICE);
         return;
@@ -350,12 +395,33 @@ export async function handleIncomingMessage({ tenant, from, body, pushName }) {
     });
     if (ignored) return;
 
+    // Si un barbero ya tomó la conversación manualmente desde la bandeja del panel, el
+    // bot se calla por un rato para no interrumpir ni contestar encima de la persona real.
+    const conversationRow = await prisma.conversationState.findUnique({
+        where: { tenantId_phone: { tenantId: tenant.id, phone: normalizePhone(from) } },
+    });
+    if (conversationRow?.humanUntil && conversationRow.humanUntil.getTime() > Date.now()) {
+        return;
+    }
+
+    const normalized = stripAccents(body);
+    if (matchesAny(normalized, HUMAN_HANDOFF_KEYWORDS)) {
+        const humanUntil = new Date(Date.now() + HUMAN_TAKEOVER_MS);
+        await prisma.conversationState.upsert({
+            where: { tenantId_phone: { tenantId: tenant.id, phone: normalizePhone(from) } },
+            update: { humanUntil },
+            create: { tenantId: tenant.id, phone: normalizePhone(from), humanUntil, data: {} },
+        });
+        await sendText(tenant, from, "🙋 Listo, ya le avisamos a alguien de nuestro equipo. En un momento te contestamos por aquí mismo.");
+        await notifyHumanRequested(tenant.id, { customerName: pushName, phone: from });
+        return;
+    }
+
     const state = await getStep(tenant.id, from);
     if (state?.step === "ask_service") return handleServiceCapture(tenant, from, body);
     if (state?.step === "ask_day") return handleDayCapture(tenant, from, body, state.data);
     if (state?.step === "ask_time") return handleTimeCapture(tenant, from, body, state.data, pushName);
 
-    const normalized = stripAccents(body);
     if (matchesAny(normalized, GREETING_KEYWORDS)) return replyWelcome(tenant, from);
     if (matchesAny(normalized, SERVICES_KEYWORDS)) return sendText(tenant, from, await buildServicesText(tenant.id));
     if (matchesAny(normalized, PRICE_KEYWORDS)) {

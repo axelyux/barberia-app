@@ -50,6 +50,13 @@ export async function notifyNewBooking(tenantId, { when, serviceName }) {
     });
 }
 
+export async function notifyHumanRequested(tenantId, { customerName, phone }) {
+    await sendPushToTenant(tenantId, {
+        title: "💬 Un cliente quiere hablar con una persona",
+        body: `${customerName || phone} está esperando en la bandeja de chats.`,
+    });
+}
+
 export async function notifyConnectionLost(tenantId) {
     await sendPushToTenant(tenantId, {
         title: "⚠️ El bot se desconectó de WhatsApp",
