@@ -15,6 +15,7 @@ import {
     formatTime12h,
     formatMinutesLabel,
     FALLBACK_HOURS,
+    zonedNow,
 } from "@/lib/scheduling";
 import { parseTimeText, parseDayChoice, matchServiceChoice, matchBarberChoice, findCatalogMatch } from "../../lib/parsing.js";
 
@@ -89,7 +90,7 @@ async function getBusinessHoursFor(tenantId, date) {
 }
 
 async function checkOpenNow(tenantId) {
-    const now = new Date();
+    const now = zonedNow();
     const hours = await getBusinessHoursFor(tenantId, now);
     const open = isWithinBusinessHours(now, 1, hours);
     const hoursText = hours.isClosed ? "cerrado hoy" : `de ${formatMinutesLabel(hours.openMin)} a ${formatMinutesLabel(hours.closeMin)}`;
@@ -234,7 +235,7 @@ async function handleDayCapture(tenant, from, body, data) {
         await sendText(tenant, from, "No entendí. Elige *Hoy* o *Mañana* con los botones.");
         return;
     }
-    const dayStart = new Date();
+    const dayStart = zonedNow();
     dayStart.setDate(dayStart.getDate() + day);
     dayStart.setHours(0, 0, 0, 0);
     const dayHours = await getBusinessHoursFor(tenant.id, dayStart);
@@ -286,7 +287,7 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
         return;
     }
 
-    const dayStart = new Date();
+    const dayStart = zonedNow();
     dayStart.setDate(dayStart.getDate() + data.dayOffset);
     dayStart.setHours(0, 0, 0, 0);
     const scheduledAt = new Date(dayStart);

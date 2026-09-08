@@ -3,6 +3,33 @@
 // Se usa solo si por algún motivo no hay horario configurado para ese día.
 export const FALLBACK_HOURS = { isClosed: false, openMin: 9 * 60, closeMin: 20 * 60 };
 
+export const TENANT_TIME_ZONE = "America/Mexico_City";
+
+// Vercel corre cada función serverless (Route Handlers, Server Actions, crons) en su
+// propio proceso con hora UTC, sin importar el `process.env.TZ` que next.config.mjs fija
+// (eso solo aplica a un proceso Node de arranque único — "next dev"/"next start" — nunca
+// se ejecuta dentro de cada función aislada). Todo este archivo asume que "ahora" ya está
+// en hora de México (para comparar contra BusinessHour.openMin/closeMin, que son minutos
+// locales); sin esta corrección, en producción "ahora" llega en UTC y una barbería puede
+// aparecer cerrada estando abierta (o al revés), solo por la diferencia de huso horario.
+//
+// Devuelve un Date cuyos .getHours()/.getDay()/.getDate() ya leen como la hora de pared
+// de México, sin importar en qué huso horario esté corriendo físicamente el proceso.
+export function zonedNow(timeZone = TENANT_TIME_ZONE) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    }).formatToParts(new Date());
+    const get = (type) => Number(parts.find((p) => p.type === type)?.value);
+    return new Date(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+}
+
 export const getBookingRange = (scheduledAt, durationMin) => {
     const start = new Date(scheduledAt);
     const end = new Date(start.getTime() + (durationMin || 30) * 60000);
@@ -65,7 +92,7 @@ export function findNearestAvailableSlots(candidateStart, durationMin, existingB
 
 // ¿La cita respeta la anticipación mínima de la barbería? Evita agendar en el pasado
 // o "para ya mismo" cuando no hay margen para atender.
-export function meetsMinimumNotice(candidateStart, minNoticeMin = 0, now = new Date()) {
+export function meetsMinimumNotice(candidateStart, minNoticeMin = 0, now = zonedNow()) {
     const earliest = new Date(now.getTime() + (minNoticeMin || 0) * 60000);
     return new Date(candidateStart) >= earliest;
 }
@@ -73,7 +100,7 @@ export function meetsMinimumNotice(candidateStart, minNoticeMin = 0, now = new D
 // Horarios libres del día, ya filtrados por horario de atención, citas existentes y
 // anticipación mínima. Se usa para ofrecerle botones al cliente en vez de texto libre.
 export function buildAvailableSlots(dayStart, durationMin, existingBookings, dayHours = FALLBACK_HOURS, options = {}) {
-    const { stepMin = 30, maxSlots = 3, minNoticeMin = 0, now = new Date(), barberId = null } = options;
+    const { stepMin = 30, maxSlots = 3, minNoticeMin = 0, now = zonedNow(), barberId = null } = options;
     if (!dayHours || dayHours.isClosed) return [];
 
     const slots = [];

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendText } from "@/lib/whatsapp-graph";
-import { formatTime12h } from "@/lib/scheduling";
+import { formatTime12h, zonedNow } from "@/lib/scheduling";
 import { logError } from "@/lib/log";
 
 // Recordatorio de cita ~1h antes, por WhatsApp. Reemplaza el setInterval de 5 min que
@@ -14,7 +14,7 @@ export async function GET(request) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const now = new Date();
+    const now = zonedNow();
     const from = new Date(now.getTime() + 55 * 60 * 1000);
     const to = new Date(now.getTime() + 65 * 60 * 1000);
 
