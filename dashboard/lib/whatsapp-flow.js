@@ -183,6 +183,48 @@ async function askDayStep(tenant, from, data) {
     await setStep(tenant.id, from, "ask_day", data);
 }
 
+// Cuando el cliente eligió "cualquiera disponible" (data.barberId sin definir, habiendo 2+
+// barberos activos), buscamos cuál de ellos está libre a esa hora exacta — nunca se asigna
+// "nadie" ni se bloquea la cita solo porque ALGÚN barbero (no necesariamente el que
+// atendería) esté ocupado a esa hora.
+async function findFreeBarberAmong(prismaClient, tenantId, scheduledAt, durationMin, minNoticeMin, barbers) {
+    for (const barber of barbers) {
+        const check = await validateBookingAvailability({
+            prisma: prismaClient,
+            tenantId,
+            scheduledAt,
+            durationMin,
+            minNoticeMin,
+            barberId: barber.id,
+        });
+        if (check.ok) return barber;
+    }
+    return null;
+}
+
+// Horarios libres del día para "cualquiera disponible": la unión de lo que cada barbero
+// activo tiene libre, no solo lo que TODOS tienen libre a la vez — así un cliente sí puede
+// agendar a una hora en la que un barbero está ocupado pero otro no.
+function buildAvailableSlotsAnyBarber(dayStart, durationMin, existing, dayHours, minNoticeMin, barbers) {
+    const seen = new Set();
+    const merged = [];
+    for (const barber of barbers) {
+        const slots = buildAvailableSlots(dayStart, durationMin, existing, dayHours, {
+            minNoticeMin,
+            maxSlots: 20,
+            barberId: barber.id,
+        });
+        for (const s of slots) {
+            const key = s.getTime();
+            if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(s);
+            }
+        }
+    }
+    return merged.sort((a, b) => a - b).slice(0, 10);
+}
+
 async function handleServiceCapture(tenant, from, body) {
     const services = await prisma.service.findMany({ where: { tenantId: tenant.id, active: true }, orderBy: { sortOrder: "asc" } });
     const service = matchServiceChoice(body, services);
@@ -240,25 +282,38 @@ async function handleDayCapture(tenant, from, body, data) {
     dayStart.setHours(0, 0, 0, 0);
     const dayHours = await getBusinessHoursFor(tenant.id, dayStart);
 
+    // En vez de obligar a escribir "agendar" desde cero (perdiendo el servicio/barbero ya
+    // elegido) cuando ese día no sirve, se le vuelve a preguntar el día directo con botones,
+    // conservando todo lo que ya había elegido.
     if (dayHours.isClosed) {
-        await sendText(tenant, from, "Ese día no abrimos. Escribe *agendar* de nuevo para elegir otro día.");
-        await clearStep(tenant.id, from);
+        await sendButtons(tenant, from, "Ese día no abrimos. ¿Qué tal otro día?", [{ body: "Hoy" }, { body: "Mañana" }]);
+        await setStep(tenant.id, from, "ask_day", data);
         return;
     }
 
     const existing = await getBookingsForDay(tenant.id, dayStart);
-    const slots = buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, {
-        minNoticeMin: tenant.bookingMinNoticeMin,
-        maxSlots: 10,
-        barberId: data.barberId ?? null,
-    });
+    let slots;
+    if (data.barberId) {
+        slots = buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, {
+            minNoticeMin: tenant.bookingMinNoticeMin,
+            maxSlots: 10,
+            barberId: data.barberId,
+        });
+    } else {
+        const barbers = await prisma.barber.findMany({ where: { tenantId: tenant.id, active: true } });
+        slots =
+            barbers.length > 0
+                ? buildAvailableSlotsAnyBarber(dayStart, data.durationMin, existing, dayHours, tenant.bookingMinNoticeMin, barbers)
+                : buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, { minNoticeMin: tenant.bookingMinNoticeMin, maxSlots: 10 });
+    }
     if (slots.length === 0) {
-        await sendText(
+        await sendButtons(
             tenant,
             from,
-            `Ya no tenemos horarios disponibles para ese día (atendemos de ${formatMinutesLabel(dayHours.openMin)} a ${formatMinutesLabel(dayHours.closeMin)}). Escribe *agendar* para intentar con otro día.`
+            `Ya no tenemos horarios disponibles para ese día (atendemos de ${formatMinutesLabel(dayHours.openMin)} a ${formatMinutesLabel(dayHours.closeMin)}). ¿Qué tal otro día?`,
+            [{ body: "Hoy" }, { body: "Mañana" }]
         );
-        await clearStep(tenant.id, from);
+        await setStep(tenant.id, from, "ask_day", data);
         return;
     }
 
@@ -299,41 +354,95 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
         scheduledAt.setHours(parsed.hour + 12, parsed.minute, 0, 0);
     }
 
-    const check = await validateBookingAvailability({
-        prisma,
-        tenantId: tenant.id,
-        scheduledAt,
-        durationMin: data.durationMin,
-        minNoticeMin: tenant.bookingMinNoticeMin,
-        barberId: data.barberId ?? null,
-    });
-    if (!check.ok) {
-        const suggestion = check.alternatives?.length
-            ? `¿Qué tal a las ${check.alternatives.map(formatTime12h).join(" o a las ")}?`
-            : "No encuentro otro horario libre cerca ese día — prueba otro día.";
-        await sendText(tenant, from, `ⓘ ${check.error} ${suggestion}`);
-        return;
+    // Con barbero específico, se valida contra su agenda; con "cualquiera", basta con que
+    // ALGUNO de los activos esté libre (no que lo estén todos) — findFreeBarberAmong ya no
+    // se usa aquí para elegir a quién asignar (eso se decide dentro de la transacción de
+    // finalizeBooking, más cerca del momento real de guardar), solo para saber si seguir.
+    if (data.barberId) {
+        const check = await validateBookingAvailability({
+            prisma,
+            tenantId: tenant.id,
+            scheduledAt,
+            durationMin: data.durationMin,
+            minNoticeMin: tenant.bookingMinNoticeMin,
+            barberId: data.barberId,
+        });
+        if (!check.ok) {
+            const suggestion = check.alternatives?.length
+                ? `¿Qué tal a las ${check.alternatives.map(formatTime12h).join(" o a las ")}?`
+                : "No encuentro otro horario libre cerca ese día — prueba otro día.";
+            await sendText(tenant, from, `ⓘ ${check.error} ${suggestion}`);
+            return;
+        }
+    } else {
+        const barbers = await prisma.barber.findMany({ where: { tenantId: tenant.id, active: true } });
+        if (barbers.length > 0) {
+            const free = await findFreeBarberAmong(prisma, tenant.id, scheduledAt, data.durationMin, tenant.bookingMinNoticeMin, barbers);
+            if (!free) {
+                await sendText(tenant, from, "ⓘ Esa hora ya está ocupada con todos los barberos disponibles. Prueba con otro horario.");
+                return;
+            }
+        } else {
+            const check = await validateBookingAvailability({
+                prisma,
+                tenantId: tenant.id,
+                scheduledAt,
+                durationMin: data.durationMin,
+                minNoticeMin: tenant.bookingMinNoticeMin,
+            });
+            if (!check.ok) {
+                const suggestion = check.alternatives?.length
+                    ? `¿Qué tal a las ${check.alternatives.map(formatTime12h).join(" o a las ")}?`
+                    : "No encuentro otro horario libre cerca ese día — prueba otro día.";
+                await sendText(tenant, from, `ⓘ ${check.error} ${suggestion}`);
+                return;
+            }
+        }
     }
 
     await finalizeBooking(tenant, from, { ...data, scheduledAt }, pushName);
 }
 
 async function finalizeBooking(tenant, from, data, pushName) {
-    const { serviceId, serviceName, priceCents, durationMin, scheduledAt, barberId, barberName } = data;
+    const { serviceId, serviceName, priceCents, durationMin, scheduledAt } = data;
     const when = new Date(scheduledAt);
+    let assignedBarberId = data.barberId ?? null;
+    let assignedBarberName = data.barberName ?? null;
 
     try {
         await prisma.$transaction(
             async (tx) => {
-                const check = await validateBookingAvailability({
-                    prisma: tx,
-                    tenantId: tenant.id,
-                    scheduledAt: when,
-                    durationMin,
-                    minNoticeMin: tenant.bookingMinNoticeMin,
-                    barberId: barberId ?? null,
-                });
-                if (!check.ok) throw new Error("SLOT_TAKEN");
+                if (assignedBarberId) {
+                    const check = await validateBookingAvailability({
+                        prisma: tx,
+                        tenantId: tenant.id,
+                        scheduledAt: when,
+                        durationMin,
+                        minNoticeMin: tenant.bookingMinNoticeMin,
+                        barberId: assignedBarberId,
+                    });
+                    if (!check.ok) throw new Error("SLOT_TAKEN");
+                } else {
+                    const barbers = await tx.barber.findMany({ where: { tenantId: tenant.id, active: true } });
+                    if (barbers.length > 0) {
+                        // "Cualquiera disponible": se decide AQUÍ, dentro de la transacción serializable,
+                        // cuál barbero queda asignado — así dos clientes pidiendo "cualquiera" a la vez
+                        // nunca terminan asignados los dos al mismo barbero por una condición de carrera.
+                        const free = await findFreeBarberAmong(tx, tenant.id, when, durationMin, tenant.bookingMinNoticeMin, barbers);
+                        if (!free) throw new Error("SLOT_TAKEN");
+                        assignedBarberId = free.id;
+                        assignedBarberName = free.name;
+                    } else {
+                        const check = await validateBookingAvailability({
+                            prisma: tx,
+                            tenantId: tenant.id,
+                            scheduledAt: when,
+                            durationMin,
+                            minNoticeMin: tenant.bookingMinNoticeMin,
+                        });
+                        if (!check.ok) throw new Error("SLOT_TAKEN");
+                    }
+                }
 
                 const customer = await findOrCreateCustomer(tx, tenant.id, from, pushName);
                 await tx.booking.create({
@@ -343,7 +452,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
                         customerName: pushName?.trim() || customer.name,
                         customerId: customer.id,
                         serviceId: serviceId ?? undefined,
-                        barberId: barberId ?? undefined,
+                        barberId: assignedBarberId ?? undefined,
                         durationMin,
                         priceChargedCents: priceCents ?? undefined,
                         scheduledAt: when,
@@ -368,7 +477,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
     await clearStep(tenant.id, from);
     const confirmText = await getFlowMessage(tenant.id, "BOOKING_CONFIRMED", "Te esperamos.");
     const serviceLine = serviceName ? `💈 Servicio: ${serviceName} — ${centsToText(priceCents)}` : null;
-    const barberLine = barberName ? `✂️ Barbero: ${barberName}` : null;
+    const barberLine = assignedBarberName ? `✂️ Barbero: ${assignedBarberName}` : null;
     await sendText(
         tenant,
         from,
