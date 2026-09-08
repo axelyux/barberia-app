@@ -127,8 +127,13 @@ export default function ChatInbox({ slug, brandColor, perms }) {
 
             {error ? <p className="px-3 pt-2 text-sm text-red-400">{error}</p> : null}
 
-            <div className="flex h-[520px] max-h-[70vh]">
-                <div className="w-full max-w-[220px] shrink-0 overflow-y-auto border-r border-white/10 sm:max-w-[260px]">
+            {/* En celular se ve una sola columna a la vez (lista O conversación, como cualquier
+                app de mensajería) — antes ambas se apretaban lado a lado y todo se cortaba. De
+                sm en adelante sí caben las dos columnas juntas. */}
+            <div className="flex h-[75vh] max-h-[640px] sm:h-[520px]">
+                <div
+                    className={`${selected ? "hidden sm:flex" : "flex"} w-full shrink-0 flex-col overflow-y-auto sm:max-w-[260px] sm:border-r sm:border-white/10`}
+                >
                     {loadingList ? (
                         <p className="p-3 text-xs text-zinc-500">Cargando…</p>
                     ) : conversations.length === 0 ? (
@@ -138,16 +143,16 @@ export default function ChatInbox({ slug, brandColor, perms }) {
                             <button
                                 key={c.phone}
                                 onClick={() => setSelected(c.phone)}
-                                className={`flex w-full flex-col gap-0.5 border-b border-white/5 px-3 py-2.5 text-left transition-colors ${
+                                className={`flex w-full min-w-0 flex-col gap-0.5 border-b border-white/5 px-3 py-2.5 text-left transition-colors ${
                                     selected === c.phone ? "bg-white/10" : "hover:bg-white/5"
                                 }`}
                             >
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="truncate text-[13px] font-semibold text-zinc-100">{c.customerName || c.phone}</span>
+                                <div className="flex min-w-0 items-center justify-between gap-2">
+                                    <span className="min-w-0 truncate text-[13px] font-semibold text-zinc-100">{c.customerName || c.phone}</span>
                                     {c.humanActive ? <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" title="Atendiendo manualmente" /> : null}
                                 </div>
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="truncate text-[11.5px] text-zinc-500">
+                                <div className="flex min-w-0 items-center justify-between gap-2">
+                                    <span className="min-w-0 truncate text-[11.5px] text-zinc-500">
                                         {c.lastDirection === "OUT" ? "Tú: " : ""}
                                         {c.lastMessage}
                                     </span>
@@ -158,25 +163,34 @@ export default function ChatInbox({ slug, brandColor, perms }) {
                     )}
                 </div>
 
-                <div className="flex flex-1 flex-col">
+                <div className={`${selected ? "flex" : "hidden sm:flex"} min-w-0 flex-1 flex-col`}>
                     {!selected ? (
                         <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-zinc-500">
                             Elige una conversación para ver los mensajes.
                         </div>
                     ) : (
                         <>
-                            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
-                                <div>
-                                    <p className="text-[13px] font-semibold text-zinc-100">{selectedConvo?.customerName || selected}</p>
-                                    <p className="text-[11px] text-zinc-500">{selected}</p>
+                            <div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/10 px-2 py-2 sm:px-3">
+                                <div className="flex min-w-0 items-center gap-1.5">
+                                    <button
+                                        onClick={() => setSelected(null)}
+                                        aria-label="Volver a la lista"
+                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg text-zinc-400 hover:bg-white/5 sm:hidden"
+                                    >
+                                        ←
+                                    </button>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-[13px] font-semibold text-zinc-100">{selectedConvo?.customerName || selected}</p>
+                                        <p className="truncate text-[11px] text-zinc-500">{selected}</p>
+                                    </div>
                                 </div>
                                 {selectedConvo?.humanActive && perms.canEdit ? (
                                     <button
                                         onClick={release}
                                         disabled={isPending}
-                                        className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] font-bold text-zinc-300 hover:bg-white/5 disabled:opacity-50"
+                                        className="shrink-0 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-bold text-zinc-300 hover:bg-white/5 disabled:opacity-50"
                                     >
-                                        Devolver al bot
+                                        Devolver
                                     </button>
                                 ) : null}
                             </div>
@@ -200,13 +214,13 @@ export default function ChatInbox({ slug, brandColor, perms }) {
                                             }
                                         }}
                                         placeholder="Escribe un mensaje…"
-                                        className="min-h-11 flex-1 rounded-lg border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-100 focus:outline-none"
+                                        className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-100 focus:outline-none"
                                     />
                                     <button
                                         onClick={send}
                                         disabled={isPending || !text.trim()}
                                         style={{ background: brandColor }}
-                                        className="flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
+                                        className="flex min-h-11 shrink-0 items-center justify-center rounded-lg px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
                                     >
                                         Enviar
                                     </button>
