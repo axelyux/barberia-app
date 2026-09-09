@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireTenantSession } from "@/lib/auth";
 import { findOwnedOrThrow, updateOwned, deleteOwned } from "@/lib/tenant-guard";
+import { validateLogoUrl } from "@/lib/validate-image";
 
 // ---------------------------------------------------------------- Servicios
 export async function createService(slug, { name, priceCents, durationMin }) {
@@ -96,7 +97,7 @@ export async function updateBranding(slug, { name, logoUrl, brandColor }) {
         where: { id: tenantId },
         data: {
             name: name?.trim() || undefined,
-            logoUrl: logoUrl?.trim() || null,
+            logoUrl: validateLogoUrl(logoUrl),
             brandColor: brandColor || "#D9A441",
         },
     });

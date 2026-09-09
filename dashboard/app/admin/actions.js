@@ -7,6 +7,7 @@ import { slugify } from "@/lib/slug";
 import { requireSuperAdmin } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { defaultFlowMessages } from "@/lib/flow-defaults";
+import { validateLogoUrl } from "@/lib/validate-image";
 
 const MODULES = ["CITAS", "SERVICIOS", "PRODUCTOS", "FINANZAS", "BOT", "SEGURIDAD"];
 
@@ -52,7 +53,7 @@ export async function createTenant({ name, ownerName, planPriceCents, brandColor
             ownerName: ownerName?.trim() || null,
             planPriceCents: Math.max(0, Math.round(planPriceCents) || 0),
             brandColor: brandColor || "#D9A441",
-            logoUrl: logoUrl?.trim() || null,
+            logoUrl: validateLogoUrl(logoUrl),
             status: "ACTIVE",
             nextDueDate: parseDueDate(nextDueDate),
         },
@@ -97,7 +98,7 @@ export async function updateTenant(tenantId, { name, ownerName, planPriceCents, 
             ownerName: ownerName?.trim() || null,
             planPriceCents: Math.max(0, Math.round(planPriceCents) || 0),
             brandColor: brandColor || "#D9A441",
-            logoUrl: logoUrl?.trim() || null,
+            logoUrl: validateLogoUrl(logoUrl),
             ...(nextDueDate ? { nextDueDate: parseDueDate(nextDueDate) } : {}),
         },
     });

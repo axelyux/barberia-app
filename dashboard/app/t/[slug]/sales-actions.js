@@ -67,15 +67,19 @@ export async function registerProductSale(
 export async function updateProductSale(
     saleId,
     slug,
-    { productName, priceCents, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
+    { productName, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
     const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "edit");
     if (!productName?.trim()) throw new Error("El nombre del producto es obligatorio");
 
     const existing = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
+    // El precio SIEMPRE se recalcula desde el catálogo (nunca desde lo que mande el
+    // cliente) — toda venta de producto está ligada a un product real desde que se creó
+    // (registerProductSale lo exige), así que aquí también debe estarlo.
+    const product = await findOwnedOrThrow("product", existing.productId, tenantId, "Producto no encontrado");
 
-    const price = Math.max(0, Math.round(priceCents) || 0);
     const qty = Math.max(1, Math.round(quantity) || 1);
+    const price = product.priceCents * qty;
     const discount = Math.max(0, Math.round(discountCents) || 0);
     const tip = Math.max(0, Math.round(tipCents) || 0);
     const netTotal = Math.max(0, price - discount + tip);
@@ -158,14 +162,17 @@ export async function registerServiceSale(
 export async function updateServiceSale(
     saleId,
     slug,
-    { serviceName, priceCents, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
+    { serviceName, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
     const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "edit");
     if (!serviceName?.trim()) throw new Error("El nombre del servicio es obligatorio");
-    await findOwnedOrThrow("serviceSale", saleId, tenantId, "Venta no encontrada");
+    const existing = await findOwnedOrThrow("serviceSale", saleId, tenantId, "Venta no encontrada");
+    // Mismo criterio que en productos: el precio se recalcula desde el catálogo, nunca
+    // desde lo que mande el cliente.
+    const service = await findOwnedOrThrow("service", existing.serviceId, tenantId, "Servicio no encontrado");
 
-    const price = Math.max(0, Math.round(priceCents) || 0);
     const qty = Math.max(1, Math.round(quantity) || 1);
+    const price = service.priceCents * qty;
     const discount = Math.max(0, Math.round(discountCents) || 0);
     const tip = Math.max(0, Math.round(tipCents) || 0);
     const netTotal = Math.max(0, price - discount + tip);

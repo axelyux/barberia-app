@@ -290,8 +290,8 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
                 <Field label={sale.kind === "product" ? "Producto" : "Servicio"}>
                     <TextInput disabled={!canEdit} value={name} onChange={(e) => setName(e.target.value)} />
                 </Field>
-                <Field label="Subtotal (MXN)">
-                    <NumberInput disabled={!canEdit} value={price} onChange={(e) => setPrice(e.target.value)} min="0" />
+                <Field label="Subtotal (MXN) · se recalcula del catálogo al guardar">
+                    <NumberInput disabled value={price} min="0" />
                 </Field>
                 <QuantityDiscountTipFields
                     showQuantity={sale.kind === "product"}
@@ -339,7 +339,6 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
                             onClick={() =>
                                 onSave({
                                     name,
-                                    priceCents: Math.round(parseFloat(price || "0") * 100),
                                     quantity: Math.max(1, parseInt(quantity, 10) || 1),
                                     discountCents: Math.round(parseFloat(discount || "0") * 100),
                                     tipCents: Math.round(parseFloat(tip || "0") * 100),

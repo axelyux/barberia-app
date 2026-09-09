@@ -1,7 +1,31 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { handleIncomingMessage } from "@/lib/whatsapp-flow";
 import { logError } from "@/lib/log";
+
+// Meta firma cada POST con HMAC-SHA256 del body crudo, usando el App Secret (Meta App ->
+// Configuración -> Básica -> "Clave secreta de la app"), y lo manda en el header
+// X-Hub-Signature-256 como "sha256=<hex>". Sin esto, cualquiera que conozca el
+// phone_number_id de una barbería (no es secreto, aparece en la consola de Meta) podía
+// mandar mensajes falsos directo a este endpoint sin pasar por WhatsApp para nada.
+function isValidSignature(rawBody, signatureHeader) {
+    const secret = process.env.META_APP_SECRET;
+    if (!secret) {
+        // Sin META_APP_SECRET configurado, no podemos verificar — se deja pasar (no se
+        // rompe el bot ya en producción) pero se deja bien claro en los logs que la
+        // verificación está apagada, para que se configure cuanto antes.
+        logError("whatsapp.webhook", new Error("META_APP_SECRET no configurado — firma del webhook sin verificar"));
+        return true;
+    }
+    if (!signatureHeader?.startsWith("sha256=")) return false;
+
+    const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+    const provided = signatureHeader.slice("sha256=".length);
+    const a = Buffer.from(expected, "hex");
+    const b = Buffer.from(provided, "hex");
+    return a.length === b.length && timingSafeEqual(a, b);
+}
 
 // Único punto de entrada público para el webhook de WhatsApp (Meta solo permite UNA URL
 // de callback por App). Reemplaza a webhook-router.js + whatsapp-meta-bot.js del VPS:
@@ -42,9 +66,16 @@ function extractIncoming(value) {
 }
 
 export async function POST(request) {
+    const rawBody = await request.text();
+
+    if (!isValidSignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+        logError("whatsapp.webhook", new Error("Firma inválida — payload rechazado"));
+        return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
+    }
+
     let payload;
     try {
-        payload = await request.json();
+        payload = JSON.parse(rawBody);
     } catch {
         return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
     }

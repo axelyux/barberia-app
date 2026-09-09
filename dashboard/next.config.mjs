@@ -11,6 +11,22 @@ const nextConfig = {
   // como dependencia de servidor tal cual — necesario para que funcione en las funciones
   // serverless de Vercel.
   serverExternalPackages: ["@prisma/client"],
+  // No se agrega Content-Security-Policy: esta app carga fuentes de Google Fonts, usa
+  // estilos/scripts inline (Tailwind, Next.js), y el WebView de la APK necesita cargar el
+  // sitio completo — una CSP mal calibrada rompería más de lo que protege sin antes medir
+  // cada fuente/script real. Estos tres headers sí son seguros de aplicar sin riesgo.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
