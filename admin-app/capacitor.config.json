@@ -1,0 +1,9 @@
+{
+  "appId": "com.barbersaas.admin",
+  "appName": "MiBarber Admin",
+  "webDir": "public",
+  "server": {
+    "url": "https://barberia-app-dashboard.vercel.app/admin/login",
+    "cleartext": false
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "mibarber-admin-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cascarón nativo de Capacitor que abre directo el panel de super-admin (barberia-app-dashboard.vercel.app/admin/login) — app separada del APK que usan las barberías, con su propio ícono, para que el dueño de la plataforma no tenga que navegar dentro de la app de clientes para llegar a su panel.",
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1"
+  }
+}

@@ -1,0 +1,52 @@
+name: Compilar APK de Admin (Android)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "admin-app/**"
+      - ".github/workflows/android-admin-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Misma llave cacheada que usa el build de la app de barberías, para que Android
+      # siempre pueda reemplazar el APK instalado por uno nuevo sin desinstalar primero.
+      - name: Cachear la llave de depuración de Android
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore
+
+      - name: Instalar dependencias
+        working-directory: admin-app
+        run: npm install
+
+      - name: Sincronizar Capacitor
+        working-directory: admin-app
+        run: npx cap sync android
+
+      - name: Compilar APK (debug, sin firmar)
+        working-directory: admin-app/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Subir el APK como descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: mibarber-admin-debug-apk
+          path: admin-app/android/app/build/outputs/apk/debug/app-debug.apk
