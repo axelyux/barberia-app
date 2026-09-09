@@ -10,6 +10,7 @@ const STEPS = [
     { key: "BOOKING_ASK_TIME", label: "Al agendar · pregunta la hora" },
     { key: "BOOKING_CONFIRMED", label: "Cita confirmada" },
     { key: "CONTACT", label: "Mensaje de contacto" },
+    { key: "FALLBACK", label: "Cuando no entiende el mensaje" },
 ];
 
 function Bubble({ value, onChange, disabled }) {

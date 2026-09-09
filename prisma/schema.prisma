@@ -26,6 +26,7 @@ enum FlowMessageKey {
   BOOKING_CONFIRMED
   CONTACT
   CLOSED
+  FALLBACK
 }
 
 enum BookingStatus {

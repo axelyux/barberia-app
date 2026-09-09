@@ -17,5 +17,9 @@ export function defaultFlowMessages(tenantName) {
             key: "CLOSED",
             text: "🕒 En este momento estamos cerrados. En cuanto abramos con gusto te atendemos — ¡gracias por tu paciencia!",
         },
+        {
+            key: "FALLBACK",
+            text: "No entendí ese mensaje 🤔 Escribe *agendar* para reservar tu cita, *servicios* para ver precios, o *hablar con alguien* si quieres que te atienda una persona.",
+        },
     ];
 }

@@ -593,6 +593,16 @@ export async function handleIncomingMessage({ tenant, from, body, pushName }) {
         return sendText(tenant, from, await getFlowMessage(tenant.id, "CONTACT", "Contacta a administración."));
     }
     if (matchesAny(normalized, BOOKING_KEYWORDS)) return askServiceStep(tenant, from);
-    // Sin coincidencia: no se responde (mismo comportamiento que antes — no hay flujo de
-    // respaldo registrado para mensajes que no calzan con ningún trigger).
+
+    // Nada coincidió: antes el bot se quedaba callado (un cliente real escribió algo que no
+    // reconoció y nunca le contestamos nada). Si el mensaje no viene vacío (fotos, stickers,
+    // audios llegan como body="" y no deben disparar esto), se le ofrece una salida clara.
+    if (body?.trim()) {
+        const fallback = await getFlowMessage(
+            tenant.id,
+            "FALLBACK",
+            "No entendí ese mensaje 🤔 Escribe *agendar* para reservar tu cita, *servicios* para ver precios, o *hablar con alguien* si quieres que te atienda una persona."
+        );
+        await sendText(tenant, from, fallback);
+    }
 }
