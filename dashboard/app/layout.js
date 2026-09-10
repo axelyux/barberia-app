@@ -17,6 +17,18 @@ const mono = JetBrains_Mono({
 export const metadata = {
   title: "MiBarber — Panel",
   description: "Panel de administración para barberías gestionadas por chatbot",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    // En esta versión de Next.js este campo genera "mobile-web-app-capable" (no el
+    // clásico "apple-mobile-web-app-capable" de versiones anteriores) — se agrega el
+    // clásico a mano en "other" de abajo para que iOS lo reconozca en cualquier versión.
+    capable: true,
+    title: "MiBarber",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport = {
