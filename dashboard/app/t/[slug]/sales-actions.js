@@ -67,10 +67,10 @@ export async function registerProductSale(
 export async function updateProductSale(
     saleId,
     slug,
-    { productName, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
+    { name, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
     const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "edit");
-    if (!productName?.trim()) throw new Error("El nombre del producto es obligatorio");
+    if (!name?.trim()) throw new Error("El nombre del producto es obligatorio");
 
     const existing = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
     // El precio SIEMPRE se recalcula desde el catálogo (nunca desde lo que mande el
@@ -86,7 +86,7 @@ export async function updateProductSale(
     const status = paymentStatus || "PAGADO";
 
     const data = {
-        productName: productName.trim(),
+        productName: name.trim(),
         priceCents: price,
         quantity: qty,
         discountCents: discount,
@@ -162,10 +162,10 @@ export async function registerServiceSale(
 export async function updateServiceSale(
     saleId,
     slug,
-    { serviceName, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
+    { name, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
     const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "edit");
-    if (!serviceName?.trim()) throw new Error("El nombre del servicio es obligatorio");
+    if (!name?.trim()) throw new Error("El nombre del servicio es obligatorio");
     const existing = await findOwnedOrThrow("serviceSale", saleId, tenantId, "Venta no encontrada");
     // Mismo criterio que en productos: el precio se recalcula desde el catálogo, nunca
     // desde lo que mande el cliente.
@@ -179,7 +179,7 @@ export async function updateServiceSale(
     const status = paymentStatus || "PAGADO";
 
     const data = {
-        serviceName: serviceName.trim(),
+        serviceName: name.trim(),
         priceCents: price,
         quantity: qty,
         discountCents: discount,
