@@ -33,7 +33,7 @@ function CreateProductForm({ brandStyle, isPending, error, onSave, onCancel }) {
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() =>
                         onSave({
                             name: form.name,
@@ -93,7 +93,7 @@ function EditProductForm({ product, brandStyle, isPending, error, canEdit, canDe
                         <SheetButton
                             variant="brand"
                             style={brandStyle}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={() =>
                                 onSave({
                                     name,
@@ -108,7 +108,7 @@ function EditProductForm({ product, brandStyle, isPending, error, canEdit, canDe
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}

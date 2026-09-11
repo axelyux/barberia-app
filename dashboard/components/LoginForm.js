@@ -70,8 +70,14 @@ export default function LoginForm({ action = login, showTenantField = true }) {
                     type="submit"
                     disabled={isPending}
                     style={buttonStyle}
-                    className="mt-1 flex min-h-11 items-center justify-center rounded-lg text-sm font-bold shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] transition-[filter] hover:brightness-95 active:brightness-90 disabled:opacity-50"
+                    className="mt-1 flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-bold shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] transition-[filter] hover:brightness-95 active:brightness-90 disabled:opacity-50"
                 >
+                    {isPending ? (
+                        <svg viewBox="0 0 24 24" className="btn-spinner h-4 w-4 shrink-0" fill="none">
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+                            <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                        </svg>
+                    ) : null}
                     {isPending ? "Entrando…" : "Entrar"}
                 </button>
             </form>

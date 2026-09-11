@@ -73,7 +73,7 @@ function CreateBarberForm({ brandStyle, isPending, error, onSave, onCancel }) {
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() =>
                         onSave({ name, phone, specialty, paymentType, commissionPercent: commission, salaryCents: Math.round(parseFloat(salary || "0") * 100) })
                     }
@@ -138,7 +138,7 @@ function EditBarberForm({ barber, brandStyle, isPending, error, canEdit, canDele
                         <SheetButton
                             variant="brand"
                             style={brandStyle}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={() =>
                                 onSave({
                                     name,
@@ -155,7 +155,7 @@ function EditBarberForm({ barber, brandStyle, isPending, error, canEdit, canDele
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}

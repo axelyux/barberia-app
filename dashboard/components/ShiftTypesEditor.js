@@ -16,7 +16,7 @@ function CreateForm({ brandStyle, isPending, error, onSave, onCancel }) {
             </Field>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
             <div className="mt-4 flex flex-col gap-2">
-                <SheetButton variant="brand" style={brandStyle} disabled={isPending} onClick={() => onSave({ name })}>
+                <SheetButton variant="brand" style={brandStyle} loading={isPending} onClick={() => onSave({ name })}>
                     Guardar
                 </SheetButton>
                 <SheetButton variant="ghost" onClick={onCancel}>
@@ -51,12 +51,12 @@ function EditForm({ shiftType, brandStyle, isPending, error, canEdit, canDelete,
             {canEdit || canDelete ? (
                 <div className="mt-4 flex flex-col gap-2">
                     {canEdit ? (
-                        <SheetButton variant="brand" style={brandStyle} disabled={isPending} onClick={() => onSave({ name, active })}>
+                        <SheetButton variant="brand" style={brandStyle} loading={isPending} onClick={() => onSave({ name, active })}>
                             Guardar cambios
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}

@@ -55,7 +55,7 @@ export default function BrandingEditor({ tenant, perms }) {
                         <SheetButton
                             variant="brand"
                             style={{ background: form.brandColor, color: contrastText(form.brandColor) }}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={save}
                         >
                             Guardar marca

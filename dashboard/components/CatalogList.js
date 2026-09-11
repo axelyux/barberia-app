@@ -44,7 +44,7 @@ function CreateItemForm({ title, extra, extra2, brandStyle, isPending, error, on
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() =>
                         onSave({
                             name: form.name,
@@ -102,7 +102,7 @@ function EditItemForm({ item, extra, extra2, brandStyle, isPending, error, canEd
                         <SheetButton
                             variant="brand"
                             style={brandStyle}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={() =>
                                 onSave({
                                     name: form.name,
@@ -117,7 +117,7 @@ function EditItemForm({ item, extra, extra2, brandStyle, isPending, error, canEd
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}

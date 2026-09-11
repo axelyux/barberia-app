@@ -77,7 +77,7 @@ export default function IgnoredContactsEditor({ contacts, slug, brandColor, perm
                 </div>
                 {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
                 <div className="mt-4 flex flex-col gap-2">
-                    <SheetButton variant="brand" style={brandStyle} disabled={isPending} onClick={submit}>
+                    <SheetButton variant="brand" style={brandStyle} loading={isPending} onClick={submit}>
                         Guardar
                     </SheetButton>
                     <SheetButton variant="ghost" onClick={() => setOpen(false)}>

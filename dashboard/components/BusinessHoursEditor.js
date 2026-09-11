@@ -119,7 +119,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                         <SheetButton
                             variant="brand"
                             style={{ background: tenant.brandColor, color: contrastText(tenant.brandColor) }}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={save}
                         >
                             Guardar horario

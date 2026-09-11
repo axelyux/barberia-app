@@ -55,7 +55,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
                     </div>
                     {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
                     <div className="mt-3">
-                        <SheetButton variant="brand" style={brandStyle} disabled={isPending} onClick={doClose}>
+                        <SheetButton variant="brand" style={brandStyle} loading={isPending} onClick={doClose}>
                             Cerrar turno (salida)
                         </SheetButton>
                     </div>

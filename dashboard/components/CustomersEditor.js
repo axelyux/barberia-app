@@ -118,7 +118,7 @@ function CreateCustomerForm({ barbers, brandStyle, isPending, error, onSave, onC
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() => onSave({ name, phone, notes, email, birthDate: birthDate || null, preferredBarberId })}
                 >
                     Guardar
@@ -172,14 +172,14 @@ function EditCustomerForm({ customer, barbers, slug, brandStyle, isPending, erro
                         <SheetButton
                             variant="brand"
                             style={brandStyle}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={() => onSave({ name, phone, notes, email, birthDate: birthDate || null, preferredBarberId })}
                         >
                             Guardar cambios
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}

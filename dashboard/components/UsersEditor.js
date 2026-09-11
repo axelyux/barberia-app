@@ -124,18 +124,18 @@ function UserForm({ initial, requirePassword, brandStyle, isPending, error, onSa
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() => onSave({ name, username, password: password || undefined, role, permissions })}
                 >
                     Guardar
                 </SheetButton>
                 {onToggleActive ? (
-                    <SheetButton variant="ghost" disabled={isPending} onClick={onToggleActive}>
+                    <SheetButton variant="ghost" loading={isPending} onClick={onToggleActive}>
                         {initial?.active === false ? "Reactivar cuenta" : "Desactivar cuenta (no podrá iniciar sesión)"}
                     </SheetButton>
                 ) : null}
                 {onDelete ? (
-                    <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                    <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                         Eliminar usuario
                     </SheetButton>
                 ) : null}

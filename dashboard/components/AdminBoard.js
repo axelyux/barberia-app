@@ -123,7 +123,7 @@ function WhatsappLinkForm({ tenant }) {
                 <TextInput value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} placeholder="Ej. 5218331234567" />
             </Field>
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
-            <SheetButton variant="ghost" disabled={isPending} onClick={save}>
+            <SheetButton variant="ghost" loading={isPending} onClick={save}>
                 Guardar conexión de WhatsApp
             </SheetButton>
             {savedAt ? <p className="text-center text-[11px] text-emerald-500">Guardado.</p> : null}
@@ -162,7 +162,7 @@ function DeleteTenantForm({ tenant, onDeleted }) {
             </p>
             <TextInput value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={tenant.name} />
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
-            <SheetButton variant="danger" disabled={isPending || !matches} onClick={remove}>
+            <SheetButton variant="danger" loading={isPending} disabled={!matches} onClick={remove}>
                 Eliminar barbería para siempre
             </SheetButton>
         </div>
@@ -183,7 +183,7 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
             <div className="mt-2 flex flex-col gap-2">
                 <SheetButton
                     variant="ghost"
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() =>
                         onSave({
                             name: form.name,
@@ -197,7 +197,7 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
                 >
                     Guardar cambios
                 </SheetButton>
-                <SheetButton variant="primary" disabled={isPending} onClick={onMarkPaid}>
+                <SheetButton variant="primary" loading={isPending} onClick={onMarkPaid}>
                     Marcar como pagado
                 </SheetButton>
                 {tenant.whatsappNumber ? (
@@ -213,11 +213,11 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
                     </a>
                 ) : null}
                 {tenant.status === "PAUSED" ? (
-                    <SheetButton variant="good" disabled={isPending} onClick={onReactivate}>
+                    <SheetButton variant="good" loading={isPending} onClick={onReactivate}>
                         Reactivar bot
                     </SheetButton>
                 ) : (
-                    <SheetButton variant="danger" disabled={isPending} onClick={onSuspend}>
+                    <SheetButton variant="danger" loading={isPending} onClick={onSuspend}>
                         Suspender bot
                     </SheetButton>
                 )}
@@ -437,7 +437,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                 <div className="mt-4 flex flex-col gap-2">
                     <SheetButton
                         variant="primary"
-                        disabled={isPending}
+                        loading={isPending}
                         onClick={() =>
                             runAction(
                                 () =>
@@ -455,7 +455,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                     >
                         Crear barbería
                     </SheetButton>
-                    <SheetButton variant="ghost" disabled={isPending} onClick={() => setCreateOpen(false)}>
+                    <SheetButton variant="ghost" loading={isPending} onClick={() => setCreateOpen(false)}>
                         Cancelar
                     </SheetButton>
                 </div>

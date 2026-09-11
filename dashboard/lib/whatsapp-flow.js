@@ -72,11 +72,13 @@ async function sendList(tenant, to, opts) {
     await logMessage(tenant.id, to, "OUT", opts?.body);
 }
 
-async function findOrCreateCustomer(tx, tenantId, phone, name) {
+// A propósito NUNCA crea un Customer nuevo: los clientes se dan de alta a mano desde la
+// pestaña Clientes, nunca automáticamente solo por escribirle al bot. Si el número ya
+// está registrado como cliente, la cita queda vinculada a su ficha real; si no, la cita
+// se guarda igual (con el nombre que mande WhatsApp) pero sin cliente asociado.
+async function findExistingCustomer(tx, tenantId, phone) {
     const normalized = normalizePhone(phone);
-    const existing = await tx.customer.findUnique({ where: { tenantId_phone: { tenantId, phone: normalized } } });
-    if (existing) return existing;
-    return tx.customer.create({ data: { tenantId, phone: normalized, name: name?.trim() || normalized } });
+    return tx.customer.findUnique({ where: { tenantId_phone: { tenantId, phone: normalized } } });
 }
 
 async function getFlowMessage(tenantId, key, fallback) {
@@ -444,13 +446,13 @@ async function finalizeBooking(tenant, from, data, pushName) {
                     }
                 }
 
-                const customer = await findOrCreateCustomer(tx, tenant.id, from, pushName);
+                const customer = await findExistingCustomer(tx, tenant.id, from);
                 await tx.booking.create({
                     data: {
                         tenantId: tenant.id,
-                        customerPhone: customer.phone,
-                        customerName: pushName?.trim() || customer.name,
-                        customerId: customer.id,
+                        customerPhone: customer?.phone ?? normalizePhone(from),
+                        customerName: pushName?.trim() || customer?.name || normalizePhone(from),
+                        customerId: customer?.id ?? undefined,
                         serviceId: serviceId ?? undefined,
                         barberId: assignedBarberId ?? undefined,
                         durationMin,

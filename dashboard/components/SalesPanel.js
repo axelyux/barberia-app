@@ -238,7 +238,8 @@ function CreateSaleForm({ products, services, barbers, customers, canSellProduct
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending || (kind === "product" ? !productId : !serviceId)}
+                    loading={isPending}
+                    disabled={kind === "product" ? !productId : !serviceId}
                     onClick={() =>
                         onSave(kind, {
                             productId: kind === "product" ? productId : undefined,
