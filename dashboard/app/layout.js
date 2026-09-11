@@ -38,6 +38,14 @@ export const viewport = {
   maximumScale: 1,
 };
 
+// Sin esto, Vercel corre las funciones en su región default (EE.UU.) mientras la base de
+// datos (Supabase) está en São Paulo — cada consulta cruza medio continente y de regreso.
+// "home" le dice a Vercel "usa la región que configuraste como principal del proyecto" en
+// vez de "auto" (elige la más cercana al usuario, que puede no ser la más cercana a la DB).
+// Todavía hace falta fijar esa región principal en Vercel → Settings → Functions →
+// Function Region, eligiendo São Paulo — este código por sí solo no la cambia.
+export const preferredRegion = "home";
+
 export default function RootLayout({ children }) {
   return (
     <html lang="es" className={`h-full antialiased ${sans.variable} ${mono.variable}`}>
