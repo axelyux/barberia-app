@@ -8,6 +8,7 @@ import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, contrastText } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
+import { useToast } from "@/components/Toast";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
 import { createExpense, updateExpense, deleteExpense, getExpensesForRange, exportExpensesCSV } from "@/app/t/[slug]/finance-actions";
 
@@ -165,7 +166,7 @@ function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onC
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
+                    loading={isPending}
                     onClick={() =>
                         onSave({
                             category: form.category,
@@ -256,7 +257,7 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
                         <SheetButton
                             variant="brand"
                             style={brandStyle}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={() =>
                                 onSave({
                                     category,
@@ -277,7 +278,7 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}
@@ -289,6 +290,7 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
 
 export default function ExpenseList({ expenses: initialExpenses, products = [], slug, brandColor, perms }) {
     const [expenses, setExpenses] = useState(initialExpenses);
+    const [visibleCount, setVisibleCount] = useState(20);
     const [fromDate, setFromDate] = useState(startOf30DaysAgo);
     const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
     const [createOpen, setCreateOpen] = useState(false);
@@ -297,16 +299,19 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
     const [isPending, startTransition] = useTransition();
     const editing = expenses.find((e) => e.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
+    const showToast = useToast();
 
     const range = () => ({ from: `${fromDate}T00:00:00`, to: `${toDate}T23:59:59` });
 
-    const run = (fn, onDone) => {
+    const run = (fn, onDone, successMessage) => {
         setError("");
         startTransition(async () => {
             try {
                 await fn();
                 setExpenses(await getExpensesForRange(slug, range()));
+                setVisibleCount(20);
                 onDone?.();
+                if (successMessage) showToast(successMessage);
             } catch (err) {
                 setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
             }
@@ -346,7 +351,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
             </div>
             <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} onExport={exportCSV} isPending={isPending} />
             <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
-                {expenses.map((e) => (
+                {expenses.slice(0, visibleCount).map((e) => (
                     <button
                         key={e.id}
                         onClick={() => {
@@ -377,6 +382,14 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                     </div>
                 ) : null}
             </div>
+            {expenses.length > visibleCount ? (
+                <button
+                    onClick={() => setVisibleCount((n) => n + 20)}
+                    className="mt-2.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-zinc-900 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/60"
+                >
+                    Cargar más ({expenses.length - visibleCount} restantes)
+                </button>
+            ) : null}
 
             {perms.canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Registrar gasto">
@@ -387,7 +400,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                             isPending={isPending}
                             error={error}
                             onCancel={() => setCreateOpen(false)}
-                            onSave={(data) => run(() => createExpense(slug, data), () => setCreateOpen(false))}
+                            onSave={(data) => run(() => createExpense(slug, data), () => setCreateOpen(false), "✅ Gasto registrado")}
                         />
                     ) : null}
                 </BottomSheet>
@@ -404,8 +417,8 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                         error={error}
                         canEdit={perms.canEdit}
                         canDelete={perms.canDelete}
-                        onSave={(data) => run(() => updateExpense(editing.id, slug, data))}
-                        onDelete={() => run(() => deleteExpense(editing.id, slug), () => setEditingId(null))}
+                        onSave={(data) => run(() => updateExpense(editing.id, slug, data), null, "✅ Cambios guardados")}
+                        onDelete={() => run(() => deleteExpense(editing.id, slug), () => setEditingId(null), "🗑️ Gasto eliminado")}
                     />
                 ) : null}
             </BottomSheet>

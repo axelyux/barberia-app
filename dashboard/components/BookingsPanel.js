@@ -5,6 +5,7 @@ import Badge from "@/components/Badge";
 import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
+import { useToast } from "@/components/Toast";
 import { money, contrastText, BOOKING_STATUS_META } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META } from "@/lib/payments";
 import {
@@ -16,7 +17,7 @@ import {
     getBookingsForDate,
 } from "@/app/t/[slug]/actions";
 
-const emptyForm = { customerName: "", customerPhone: "", serviceId: "", barberId: "", hour: "9", minute: "0" };
+const emptyForm = { customerName: "", customerPhone: "", serviceId: "", barberId: "", time: "09:00" };
 
 const toISODate = (d) => {
     const x = new Date(d);
@@ -79,22 +80,25 @@ function CreateBookingForm({ services, barbers, brandStyle, isPending, error, on
                         </select>
                     </Field>
                 ) : null}
-                <div className="grid grid-cols-2 gap-2">
-                    <Field label="Hora">
-                        <NumberInput value={form.hour} onChange={(e) => setForm((f) => ({ ...f, hour: e.target.value }))} min="0" max="23" />
-                    </Field>
-                    <Field label="Minuto">
-                        <NumberInput value={form.minute} onChange={(e) => setForm((f) => ({ ...f, minute: e.target.value }))} min="0" max="59" />
-                    </Field>
-                </div>
+                <Field label="Hora">
+                    <input
+                        type="time"
+                        value={form.time}
+                        onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
+                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+                    />
+                </Field>
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
             <div className="mt-4 flex flex-col gap-2">
                 <SheetButton
                     variant="brand"
                     style={brandStyle}
-                    disabled={isPending}
-                    onClick={() => onSave({ ...form, hour: parseInt(form.hour || "0", 10), minute: parseInt(form.minute || "0", 10) })}
+                    loading={isPending}
+                    onClick={() => {
+                        const [hour, minute] = form.time.split(":").map((n) => parseInt(n, 10) || 0);
+                        onSave({ ...form, hour, minute });
+                    }}
                 >
                     Agendar
                 </SheetButton>
@@ -154,7 +158,9 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
         setSelectedId(b.id);
     };
 
-    const run = (fn, onDone) => {
+    const showToast = useToast();
+
+    const run = (fn, onDone, successMessage) => {
         setError("");
         startTransition(async () => {
             try {
@@ -162,6 +168,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                 const rows = await getBookingsForDate(slug, dateISO);
                 setBookings(rows);
                 onDone?.();
+                if (successMessage) showToast(successMessage);
             } catch (err) {
                 setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
             }
@@ -229,7 +236,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                             isPending={isPending}
                             error={error}
                             onCancel={() => setCreateOpen(false)}
-                            onSave={(data) => run(() => createBooking(slug, { ...data, dateISO }), () => setCreateOpen(false))}
+                            onSave={(data) => run(() => createBooking(slug, { ...data, dateISO }), () => setCreateOpen(false), "✅ Cita agendada")}
                         />
                     ) : null}
                 </BottomSheet>
@@ -290,15 +297,18 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                 <>
                                     <SheetButton
                                         variant="ghost"
-                                        disabled={isPending}
+                                        loading={isPending}
                                         onClick={() =>
-                                            run(() =>
-                                                updateBooking(selected.id, slug, {
-                                                    customerName: name,
-                                                    customerPhone: phone,
-                                                    serviceId: serviceId || null,
-                                                    barberId: barberId || null,
-                                                })
+                                            run(
+                                                () =>
+                                                    updateBooking(selected.id, slug, {
+                                                        customerName: name,
+                                                        customerPhone: phone,
+                                                        serviceId: serviceId || null,
+                                                        barberId: barberId || null,
+                                                    }),
+                                                null,
+                                                "✅ Cambios guardados"
                                             )
                                         }
                                     >
@@ -340,14 +350,17 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                             <SheetButton
                                                 variant="brand"
                                                 style={brandStyle}
-                                                disabled={isPending}
+                                                loading={isPending}
                                                 onClick={() =>
-                                                    run(() =>
-                                                        markBookingCompleted(selected.id, slug, {
-                                                            paymentMethod,
-                                                            paymentStatus,
-                                                            amountPaidCents: Math.round(parseFloat(amountPaid || "0") * 100),
-                                                        })
+                                                    run(
+                                                        () =>
+                                                            markBookingCompleted(selected.id, slug, {
+                                                                paymentMethod,
+                                                                paymentStatus,
+                                                                amountPaidCents: Math.round(parseFloat(amountPaid || "0") * 100),
+                                                            }),
+                                                        null,
+                                                        "✅ Cita completada"
                                                     )
                                                 }
                                             >
@@ -356,14 +369,22 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                         </>
                                     ) : null}
                                     {selected.status !== "CANCELLED" ? (
-                                        <SheetButton variant="danger" disabled={isPending} onClick={() => run(() => cancelBooking(selected.id, slug))}>
+                                        <SheetButton
+                                            variant="danger"
+                                            loading={isPending}
+                                            onClick={() => run(() => cancelBooking(selected.id, slug), null, "Cita cancelada")}
+                                        >
                                             Cancelar cita
                                         </SheetButton>
                                     ) : null}
                                 </>
                             ) : null}
                             {perms.canDelete ? (
-                                <SheetButton variant="danger" disabled={isPending} onClick={() => run(() => deleteBooking(selected.id, slug), () => setSelectedId(null))}>
+                                <SheetButton
+                                    variant="danger"
+                                    loading={isPending}
+                                    onClick={() => run(() => deleteBooking(selected.id, slug), () => setSelectedId(null), "🗑️ Cita eliminada")}
+                                >
                                     Eliminar cita
                                 </SheetButton>
                             ) : null}

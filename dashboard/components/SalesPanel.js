@@ -9,6 +9,7 @@ import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, contrastText } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
+import { useToast } from "@/components/Toast";
 import {
     registerProductSale,
     updateProductSale,
@@ -335,7 +336,7 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
                         <SheetButton
                             variant="brand"
                             style={brandStyle}
-                            disabled={isPending}
+                            loading={isPending}
                             onClick={() =>
                                 onSave({
                                     name,
@@ -356,7 +357,7 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" disabled={isPending} onClick={onDelete}>
+                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
                             Eliminar
                         </SheetButton>
                     ) : null}
@@ -368,6 +369,11 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
 
 export default function SalesPanel({ products, services, sales: initialSales, barbers = [], customers = [], slug, brandColor, perms, openCreateSignal }) {
     const [sales, setSales] = useState(initialSales);
+    // La lista se pide completa (del rango de fechas), pero se renderiza de a poco — con un
+    // negocio movido, 30 días pueden ser cientos de filas de un jalón, lo cual se siente
+    // amontonado y va a ir más lento con el tiempo. "Cargar más" es el mismo patrón que ya
+    // usa Clientes.
+    const [visibleCount, setVisibleCount] = useState(20);
     const [fromDate, setFromDate] = useState(startOf30DaysAgo);
     const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
     const [createOpen, setCreateOpen] = useState(false);
@@ -391,14 +397,17 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
     const canAdd = perms.productos.canAdd || perms.servicios.canAdd;
 
     const range = () => ({ from: `${fromDate}T00:00:00`, to: `${toDate}T23:59:59` });
+    const showToast = useToast();
 
-    const run = (fn, onDone) => {
+    const run = (fn, onDone, successMessage) => {
         setError("");
         startTransition(async () => {
             try {
                 await fn();
                 setSales(await getSalesForRange(slug, range()));
+                setVisibleCount(20);
                 onDone?.();
+                if (successMessage) showToast(successMessage);
             } catch (err) {
                 setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
             }
@@ -421,17 +430,17 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
 
     const create = (kind, data) => {
         const action = kind === "product" ? registerProductSale : registerServiceSale;
-        run(() => action(slug, data), () => setCreateOpen(false));
+        run(() => action(slug, data), () => setCreateOpen(false), "✅ Venta registrada");
     };
 
     const save = (data) => {
         const action = editing.kind === "product" ? updateProductSale : updateServiceSale;
-        run(() => action(editing.id, slug, data));
+        run(() => action(editing.id, slug, data), null, "✅ Cambios guardados");
     };
 
     const remove = () => {
         const action = editing.kind === "product" ? deleteProductSale : deleteServiceSale;
-        run(() => action(editing.id, slug), () => setEditingId(null));
+        run(() => action(editing.id, slug), () => setEditingId(null), "🗑️ Venta eliminada");
     };
 
     return (
@@ -455,7 +464,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
             <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} onExport={exportCSV} isPending={isPending} />
 
             <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
-                {sales.map((s) => {
+                {sales.slice(0, visibleCount).map((s) => {
                     const statusMeta = PAYMENT_STATUS_META[s.paymentStatus ?? "PAGADO"];
                     return (
                         <button
@@ -498,6 +507,14 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                     </div>
                 ) : null}
             </div>
+            {sales.length > visibleCount ? (
+                <button
+                    onClick={() => setVisibleCount((n) => n + 20)}
+                    className="mt-2.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-zinc-900 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/60"
+                >
+                    Cargar más ({sales.length - visibleCount} restantes)
+                </button>
+            ) : null}
 
             {canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Registrar venta">

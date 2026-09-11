@@ -1,6 +1,7 @@
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import RegisterServiceWorker from "@/components/RegisterServiceWorker";
+import { ToastProvider } from "@/components/Toast";
 
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -42,7 +43,7 @@ export default function RootLayout({ children }) {
     <html lang="es" className={`h-full antialiased ${sans.variable} ${mono.variable}`}>
       <body className="min-h-full">
         <RegisterServiceWorker />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
