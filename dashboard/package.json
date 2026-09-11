@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint",
+    "backup": "node --env-file=.env.local scripts/backup-db.js",
     "postinstall": "prisma generate --schema=../prisma/schema.prisma"
   },
   "dependencies": {
