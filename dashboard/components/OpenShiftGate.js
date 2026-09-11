@@ -36,7 +36,7 @@ export default function OpenShiftGate({ slug, brandColor, tenantName, shiftTypes
                     openingCashCents: Math.round(parseFloat(openingCash || "0") * 100),
                 });
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

@@ -19,7 +19,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
             try {
                 await closeShift(slug, { closingCashCents: Math.round(parseFloat(closingCash || "0") * 100), notes });
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

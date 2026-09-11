@@ -100,7 +100,7 @@ function WhatsappLinkForm({ tenant }) {
                 setMetaAccessToken("");
                 setSavedAt(new Date());
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };
@@ -148,7 +148,7 @@ function DeleteTenantForm({ tenant, onDeleted }) {
                 await deleteTenant(tenant.id, confirmText);
                 onDeleted();
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };
@@ -261,7 +261,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                 }
                 onSuccess?.(result);
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

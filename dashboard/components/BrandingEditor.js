@@ -21,7 +21,7 @@ export default function BrandingEditor({ tenant, perms }) {
                 await updateBranding(tenant.slug, form);
                 setSaved(true);
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

@@ -71,7 +71,14 @@ function QuantityDiscountTipFields({ showQuantity, quantity, discount, tip, note
         <>
             {showQuantity ? (
                 <Field label="Cantidad">
-                    <NumberInput value={quantity} onChange={(e) => onQuantity(e.target.value)} min="1" disabled={disabled} />
+                    <NumberInput
+                        value={quantity}
+                        onChange={(e) => onQuantity(e.target.value.replace(/[^0-9]/g, ""))}
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        disabled={disabled}
+                    />
                 </Field>
             ) : null}
             <div className="grid grid-cols-2 gap-2.5">
@@ -410,7 +417,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                 onDone?.();
                 if (successMessage) showToast(successMessage);
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

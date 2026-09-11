@@ -240,7 +240,7 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
                 await fn();
                 onDone?.();
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

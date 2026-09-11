@@ -143,7 +143,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                 await fn();
                 onDone?.();
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

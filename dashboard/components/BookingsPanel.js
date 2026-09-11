@@ -170,7 +170,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                 onDone?.();
                 if (successMessage) showToast(successMessage);
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

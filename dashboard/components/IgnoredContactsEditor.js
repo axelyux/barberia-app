@@ -24,7 +24,7 @@ export default function IgnoredContactsEditor({ contacts, slug, brandColor, perm
                 setPhone("");
                 setLabel("");
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

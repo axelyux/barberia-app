@@ -159,7 +159,7 @@ export default function UsersEditor({ users, slug, brandColor, perms }) {
                 await fn();
                 onDone?.();
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

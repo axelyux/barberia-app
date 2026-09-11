@@ -47,7 +47,7 @@ export default function FlowEditor({ initialMessages, brandColor, slug, perms })
                 await saveFlowMessages(slug, messages);
                 setSavedAt(new Date());
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

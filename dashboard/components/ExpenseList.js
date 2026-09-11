@@ -98,7 +98,14 @@ function ProductPurchaseFields({ products, productId, quantity, onProductId, onQ
             </Field>
             {productId ? (
                 <Field label="Cantidad comprada (se suma al stock)">
-                    <NumberInput value={quantity} onChange={(e) => onQuantity(e.target.value)} min="1" disabled={disabled} />
+                    <NumberInput
+                        value={quantity}
+                        onChange={(e) => onQuantity(e.target.value.replace(/[^0-9]/g, ""))}
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        disabled={disabled}
+                    />
                 </Field>
             ) : null}
         </>
@@ -173,7 +180,7 @@ function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onC
                             description: form.description,
                             amountCents: Math.round(parseFloat(form.amount || "0") * 100),
                             productId: form.productId || null,
-                            quantity: form.productId ? parseFloat(form.quantity || "1") : null,
+                            quantity: form.productId ? parseInt(form.quantity || "1", 10) : null,
                             paymentMethod: form.paymentMethod,
                             vendor,
                             receiptNumber,
@@ -264,7 +271,7 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
                                     description,
                                     amountCents: Math.round(parseFloat(amount || "0") * 100),
                                     productId: productId || null,
-                                    quantity: productId ? parseFloat(quantity || "1") : null,
+                                    quantity: productId ? parseInt(quantity || "1", 10) : null,
                                     paymentMethod,
                                     vendor,
                                     receiptNumber,
@@ -313,7 +320,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                 onDone?.();
                 if (successMessage) showToast(successMessage);
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };

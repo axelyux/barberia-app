@@ -140,7 +140,7 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                 await fn();
                 onDone?.();
             } catch (err) {
-                setError(err?.message ?? "Algo salió mal, intenta de nuevo.");
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };
