@@ -23,6 +23,7 @@ function Bubble({ value, onChange, disabled }) {
                     onChange={onChange}
                     disabled={disabled}
                     rows={3}
+                    maxLength={1000}
                     className="w-full resize-none bg-transparent text-[13.5px] leading-snug text-[#e9edef] placeholder:text-zinc-500 focus:outline-none disabled:opacity-70"
                 />
                 <div className="mt-1 text-right text-[10px] text-[#8696a0]">10:41</div>
