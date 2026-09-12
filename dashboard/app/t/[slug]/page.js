@@ -7,6 +7,7 @@ import OpenShiftGate from "@/components/OpenShiftGate";
 import { buildFinanceData } from "@/lib/finance";
 import { ALL_PAYMENT_METHODS } from "@/lib/payments";
 import { zonedNow, TENANT_TIME_ZONE } from "@/lib/scheduling";
+import { shiftLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -84,12 +85,12 @@ export default async function TenantPage({ params }) {
         }),
         prisma.productSale.findMany({
             where: { tenantId: tenant.id, createdAt: { gte: start30 } },
-            include: { barber: true, customer: true },
+            include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
             orderBy: { createdAt: "desc" },
         }),
         prisma.serviceSale.findMany({
             where: { tenantId: tenant.id, createdAt: { gte: start30 } },
-            include: { barber: true, customer: true },
+            include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
             orderBy: { createdAt: "desc" },
         }),
         prisma.service.findMany({ where: { tenantId: tenant.id }, orderBy: { sortOrder: "asc" } }),
@@ -99,7 +100,7 @@ export default async function TenantPage({ params }) {
         prisma.booking.findMany({ where: { tenantId: tenant.id, status: "COMPLETED", scheduledAt: { gte: start30 } }, include: { barber: true } }),
         prisma.expense.findMany({
             where: { tenantId: tenant.id, createdAt: { gte: start30 } },
-            include: { product: true },
+            include: { product: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
             orderBy: { createdAt: "desc" },
         }),
         prisma.businessHour.findMany({ where: { tenantId: tenant.id } }),
@@ -172,6 +173,8 @@ export default async function TenantPage({ params }) {
             ...s,
             createdAt: s.createdAt.toISOString(),
             cancelledAt: s.cancelledAt?.toISOString() ?? null,
+            cashShift: undefined,
+            shiftLabel: shiftLabel(s.cashShift),
             barber: plainBarber(s.barber),
             customer: plainCustomer(s.customer),
         }));
@@ -180,6 +183,8 @@ export default async function TenantPage({ params }) {
         ...e,
         createdAt: e.createdAt.toISOString(),
         cancelledAt: e.cancelledAt?.toISOString() ?? null,
+        cashShift: undefined,
+        shiftLabel: shiftLabel(e.cashShift),
     }));
     const plainDaily = finance.daily.map((d) => ({ ...d, date: d.date.toISOString() }));
     const plainStaffUsers = staffUsers.map((u) => ({ id: u.id, name: u.name, username: u.username, role: u.role, active: u.active, permissions: u.permissions }));
@@ -205,8 +210,9 @@ export default async function TenantPage({ params }) {
 
     // Mismo cálculo que closeShift() en shift-actions.js — se muestra en pantalla ANTES de
     // cerrar el turno para que el cajero nunca vea el campo "efectivo contado" en $0.
-    const sinceShiftStart = (d) => new Date(d) >= openShift.startedAt;
-    const activeInShift = (s) => !s.cancelledAt && sinceShiftStart(s.createdAt);
+    // Pertenece al turno por su vínculo explícito, no por su fecha (ver closeShift): editar
+    // la fecha de una venta no debe moverla de caja.
+    const activeInShift = (s) => !s.cancelledAt && s.cashShiftId === openShift.id;
     const shiftRevenueRows = [
         ...completedBookingsThisShift,
         ...productSales30.filter(activeInShift),
@@ -218,7 +224,7 @@ export default async function TenantPage({ params }) {
     // Gastos que de verdad sacaron billetes del cajón en este turno: en efectivo, marcados
     // como salidos de caja, y no cancelados. Se muestran también en el desglose del turno.
     const shiftCashExpenses = expenses30.filter(
-        (e) => !e.cancelledAt && sinceShiftStart(e.createdAt) && e.paymentMethod === "EFECTIVO" && e.fromCashRegister
+        (e) => activeInShift(e) && e.paymentMethod === "EFECTIVO" && e.fromCashRegister
     );
     const shiftCashExpenseCents = shiftCashExpenses.reduce((sum, e) => sum + e.amountCents, 0);
     const shiftCashDepositCents = cashMovements.filter((m) => m.type === "DEPOSITO").reduce((sum, m) => sum + m.amountCents, 0);

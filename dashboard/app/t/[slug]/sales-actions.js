@@ -6,6 +6,7 @@ import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
 import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
+import { shiftLabel } from "@/lib/format";
 
 const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
 const plainCustomer = (c) => (c ? { ...c, createdAt: c.createdAt.toISOString() } : null);
@@ -28,6 +29,14 @@ async function ownedOrNull(model, id, tenantId) {
 // Servicios comparten el mismo contador porque en pantalla aparecen mezclados en una sola
 // lista de "Ventas". Un solo UPDATE con increment es atómico en Postgres, sin importar
 // cuántas ventas se registren al mismo tiempo.
+// El turno abierto en el momento de cobrar. Se guarda en la venta para que quede fijo a
+// qué caja entró el dinero: la fecha de la venta se puede editar después, pero el cajón
+// donde se recibió el efectivo no cambia.
+async function openShiftId(tenantId) {
+    const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" }, select: { id: true } });
+    return shift?.id ?? null;
+}
+
 async function nextSaleFolio(db, tenantId) {
     const tenant = await db.tenant.update({ where: { id: tenantId }, data: { saleFolioSeq: { increment: 1 } }, select: { saleFolioSeq: true } });
     return tenant.saleFolioSeq;
@@ -64,6 +73,7 @@ export async function registerProductSale(
         paymentMethod: paymentMethod || "EFECTIVO",
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
+        cashShiftId: await openShiftId(tenantId),
     };
     if (createdAt) saleData.createdAt = new Date(createdAt);
 
@@ -191,6 +201,7 @@ export async function registerServiceSale(
         paymentMethod: paymentMethod || "EFECTIVO",
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
+        cashShiftId: await openShiftId(tenantId),
     };
     if (createdAt) saleData.createdAt = new Date(createdAt);
 
@@ -256,8 +267,8 @@ export async function getSalesForRange(slug, { from, to }) {
     const range = { gte: new Date(from), lte: new Date(to) };
 
     const [productSales, serviceSales] = await Promise.all([
-        prisma.productSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true } }),
-        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true } }),
+        prisma.productSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } } }),
+        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } } }),
     ]);
 
     const products = productSales.map((s) => ({
@@ -266,6 +277,8 @@ export async function getSalesForRange(slug, { from, to }) {
         name: s.productName,
         createdAt: s.createdAt.toISOString(),
         cancelledAt: s.cancelledAt?.toISOString() ?? null,
+        cashShift: undefined,
+        shiftLabel: shiftLabel(s.cashShift),
         barber: plainBarber(s.barber),
         customer: plainCustomer(s.customer),
     }));
@@ -274,6 +287,8 @@ export async function getSalesForRange(slug, { from, to }) {
         kind: "service",
         name: s.serviceName,
         cancelledAt: s.cancelledAt?.toISOString() ?? null,
+        cashShift: undefined,
+        shiftLabel: shiftLabel(s.cashShift),
         createdAt: s.createdAt.toISOString(),
         barber: plainBarber(s.barber),
         customer: plainCustomer(s.customer),
@@ -287,8 +302,8 @@ export async function exportSalesCSV(slug, { from, to }) {
     const range = { gte: new Date(from), lte: new Date(to) };
 
     const [productSales, serviceSales] = await Promise.all([
-        prisma.productSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true } }),
-        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true } }),
+        prisma.productSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } } }),
+        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } } }),
     ]);
 
     const rows = [
@@ -302,6 +317,7 @@ export async function exportSalesCSV(slug, { from, to }) {
         { label: "Cancelada por", value: (s) => s.cancelledByName ?? "" },
         { label: "Motivo de cancelación", value: (s) => s.cancelReason ?? "" },
         { label: "Fecha", value: (s) => s.createdAt.toLocaleString("es-MX") },
+        { label: "Turno", value: (s) => shiftLabel(s.cashShift) ?? "" },
         { label: "Tipo", value: (s) => s.kind },
         { label: "Nombre", value: (s) => s.name },
         { label: "Cantidad", value: (s) => s.quantity },

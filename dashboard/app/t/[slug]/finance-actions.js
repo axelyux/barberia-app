@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
+import { shiftLabel } from "@/lib/format";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
 import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
 
@@ -38,6 +39,8 @@ export async function createExpense(
         receiptNumber: receiptNumber?.trim() || null,
         isRecurring: !!isRecurring,
         paidByName: paidByName?.trim() || null,
+        // Turno en el que se registró: queda fijo aunque después se edite la fecha.
+        cashShiftId: (await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" }, select: { id: true } }))?.id ?? null,
     };
     if (createdAt) data.createdAt = new Date(createdAt);
 
@@ -119,17 +122,23 @@ export async function getExpensesForRange(slug, { from, to }) {
     const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
     const expenses = await prisma.expense.findMany({
         where: { tenantId, createdAt: { gte: new Date(from), lte: new Date(to) } },
-        include: { product: true },
+        include: { product: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
         orderBy: { createdAt: "desc" },
     });
-    return expenses.map((e) => ({ ...e, createdAt: e.createdAt.toISOString(), cancelledAt: e.cancelledAt?.toISOString() ?? null }));
+    return expenses.map((e) => ({
+        ...e,
+        createdAt: e.createdAt.toISOString(),
+        cancelledAt: e.cancelledAt?.toISOString() ?? null,
+        cashShift: undefined,
+        shiftLabel: shiftLabel(e.cashShift),
+    }));
 }
 
 export async function exportExpensesCSV(slug, { from, to }) {
     const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
     const expenses = await prisma.expense.findMany({
         where: { tenantId, createdAt: { gte: new Date(from), lte: new Date(to) } },
-        include: { product: true },
+        include: { product: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
         orderBy: { createdAt: "asc" },
     });
     return toCSV(expenses, [
@@ -138,6 +147,7 @@ export async function exportExpensesCSV(slug, { from, to }) {
         { label: "Cancelado por", value: (e) => e.cancelledByName ?? "" },
         { label: "Motivo de cancelación", value: (e) => e.cancelReason ?? "" },
         { label: "Fecha", value: (e) => e.createdAt.toLocaleString("es-MX") },
+        { label: "Turno", value: (e) => shiftLabel(e.cashShift) ?? "" },
         { label: "Categoría", value: (e) => EXPENSE_CATEGORY_META[e.category].label },
         { label: "Descripción", value: (e) => e.description },
         { label: "Monto", value: (e) => (e.amountCents / 100).toFixed(2) },

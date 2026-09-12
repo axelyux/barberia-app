@@ -300,6 +300,14 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                     onChange={setFromCashRegister}
                     disabled={!editable}
                 />
+                {expense.shiftLabel ? (
+                    <div>
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Turno en que se registró</p>
+                        <div className="flex min-h-11 items-center rounded-lg border border-zinc-700/80 bg-zinc-800/30 px-3.5 text-[15px] text-zinc-400">
+                            {expense.shiftLabel}
+                        </div>
+                    </div>
+                ) : null}
                 <VendorFields
                     vendor={vendor}
                     receiptNumber={receiptNumber}
@@ -470,6 +478,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                                 {e.product ? ` · +${e.quantity} ${e.product.name} a stock` : ""}
                                 {e.vendor ? ` · ${e.vendor}` : ""}
                             </p>
+                            {e.shiftLabel ? <p className="text-[11px] text-zinc-600">{e.shiftLabel}</p> : null}
                             {e.cancelledAt ? (
                                 <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-red-400">
                                     Cancelado{e.cancelledByName ? ` · ${e.cancelledByName}` : ""}

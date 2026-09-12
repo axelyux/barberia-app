@@ -25,6 +25,15 @@ export const toDatetimeLocalValue = (date) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// Etiqueta corta del turno (caja) al que pertenece una venta o un gasto — en un mismo día
+// puede haber varios turnos con cajas distintas, así que el nombre solo no basta para
+// distinguirlos: se acompaña de la hora en que abrió.
+export const shiftLabel = (shift) => {
+    if (!shift) return null
+    const hora = new Date(shift.startedAt).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/^0/, '')
+    return `${shift.shiftType?.name ?? 'Turno'} · ${hora}`
+}
+
 // Inverso de toDatetimeLocalValue. El <input type="datetime-local"> entrega
 // "2026-09-11T18:14" SIN zona horaria; si eso se manda tal cual al servidor, Node lo
 // interpreta en SU propio huso (UTC en Vercel) y el registro se guarda corrido por la

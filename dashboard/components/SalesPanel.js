@@ -341,6 +341,14 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
                         No se puede cambiar después de cobrar. Si te equivocaste, cancela la venta y regístrala de nuevo.
                     </p>
                 </div>
+                {sale.shiftLabel ? (
+                    <div>
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Turno en que se cobró</p>
+                        <div className="flex min-h-11 items-center rounded-lg border border-zinc-700/80 bg-zinc-800/30 px-3.5 text-[15px] text-zinc-400">
+                            {sale.shiftLabel}
+                        </div>
+                    </div>
+                ) : null}
                 <PaymentStatusFields
                     status={paymentStatus}
                     amountPaid={amountPaid}
@@ -543,6 +551,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                                     {s.customer ? ` · ${s.customer.name}` : ""}
                                     {s.tipCents > 0 ? ` · propina ${money(s.tipCents)}` : ""}
                                 </p>
+                                {s.shiftLabel ? <p className="text-[11px] text-zinc-600">{s.shiftLabel}</p> : null}
                                 {cancelled ? (
                                     <div className="mt-1.5">
                                         <Badge tone="bad">Cancelada{s.cancelledByName ? ` · ${s.cancelledByName}` : ""}</Badge>

@@ -250,6 +250,11 @@ model CashShift {
   endedAt             DateTime?
 
   cashMovements CashMovement[]
+  // Qué se cobró/gastó durante este turno. Es un vínculo explícito, no un rango de fechas:
+  // la fecha de una venta se puede editar, pero el cajón donde entró el dinero no cambia.
+  productSales  ProductSale[]
+  serviceSales  ServiceSale[]
+  expenses      Expense[]
 
   @@index([tenantId, startedAt])
   @@index([tenantId, status])
@@ -310,6 +315,9 @@ model ServiceSale {
   cancelledAt     DateTime?
   cancelledByName String?
   cancelReason    String?
+  // Turno (caja) en el que se cobró. Se fija al registrar la venta y ya no cambia.
+  cashShiftId   String?
+  cashShift     CashShift?    @relation(fields: [cashShiftId], references: [id], onDelete: SetNull)
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   serviceId     String?
@@ -433,6 +441,9 @@ model Expense {
   cancelledAt     DateTime?
   cancelledByName String?
   cancelReason    String?
+  // Turno (caja) en el que se registró el gasto. Se fija al crearlo y ya no cambia.
+  cashShiftId String?
+  cashShift   CashShift?      @relation(fields: [cashShiftId], references: [id], onDelete: SetNull)
   tenantId    String
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category    ExpenseCategory
@@ -527,6 +538,9 @@ model ProductSale {
   cancelledAt     DateTime?
   cancelledByName String?
   cancelReason    String?
+  // Turno (caja) en el que se cobró. Se fija al registrar la venta y ya no cambia.
+  cashShiftId   String?
+  cashShift     CashShift?    @relation(fields: [cashShiftId], references: [id], onDelete: SetNull)
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   productId     String?
