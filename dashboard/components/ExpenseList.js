@@ -34,6 +34,35 @@ function PaymentMethodSelect({ value, onChange, disabled, activeMethods }) {
 }
 const startOf30DaysAgo = () => toDateInputValue(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
 
+// Solo tiene sentido preguntarlo cuando se pagó en efectivo: un gasto con tarjeta o
+// transferencia nunca toca el cajón. Marcado = el dinero salió de la caja del turno (el
+// proveedor que llegó a media tarde); desmarcado = se pagó por fuera (renta, luz) y la
+// caja no se mueve.
+function CashRegisterField({ paymentMethod, value, onChange, disabled }) {
+    if (paymentMethod !== "EFECTIVO") return null;
+    return (
+        <div className="rounded-lg border border-white/10 bg-zinc-900/40 p-3">
+            <label className="flex items-start gap-2.5 text-sm text-zinc-300">
+                <input
+                    type="checkbox"
+                    disabled={disabled}
+                    checked={value}
+                    onChange={(e) => onChange(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-zinc-600 bg-zinc-800 disabled:opacity-50"
+                />
+                <span>
+                    El dinero salió de la caja
+                    <span className="mt-0.5 block text-[11.5px] text-zinc-500">
+                        {value
+                            ? "Se va a descontar del efectivo del turno."
+                            : "No toca el efectivo del turno (ej. la renta la pagaste por fuera)."}
+                    </span>
+                </span>
+            </label>
+        </div>
+    );
+}
+
 function CategorySelect({ value, onChange, disabled }) {
     return (
         <select
@@ -120,6 +149,7 @@ function CreateExpenseForm({ products, activeMethods, brandStyle, isPending, err
     const [receiptNumber, setReceiptNumber] = useState("");
     const [isRecurring, setIsRecurring] = useState(false);
     const [paidByName, setPaidByName] = useState("");
+    const [fromCashRegister, setFromCashRegister] = useState(true);
     const [when, setWhen] = useState(() => toDatetimeLocalValue(new Date()));
 
     return (
@@ -155,6 +185,7 @@ function CreateExpenseForm({ products, activeMethods, brandStyle, isPending, err
                         activeMethods={activeMethods}
                     />
                 </Field>
+                <CashRegisterField paymentMethod={form.paymentMethod} value={fromCashRegister} onChange={setFromCashRegister} />
                 <VendorFields
                     vendor={vendor}
                     receiptNumber={receiptNumber}
@@ -188,6 +219,7 @@ function CreateExpenseForm({ products, activeMethods, brandStyle, isPending, err
                             productId: form.productId || null,
                             quantity: form.productId ? parseInt(form.quantity || "1", 10) : null,
                             paymentMethod: form.paymentMethod,
+                            fromCashRegister,
                             vendor,
                             receiptNumber,
                             isRecurring,
@@ -217,6 +249,7 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
     const [receiptNumber, setReceiptNumber] = useState(expense.receiptNumber ?? "");
     const [isRecurring, setIsRecurring] = useState(expense.isRecurring ?? false);
     const [paidByName, setPaidByName] = useState(expense.paidByName ?? "");
+    const [fromCashRegister, setFromCashRegister] = useState(expense.fromCashRegister !== false);
     const [when, setWhen] = useState(() => toDatetimeLocalValue(expense.createdAt));
 
     return (
@@ -247,6 +280,12 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                         activeMethods={activeMethods}
                     />
                 </Field>
+                <CashRegisterField
+                    paymentMethod={paymentMethod}
+                    value={fromCashRegister}
+                    onChange={setFromCashRegister}
+                    disabled={!canEdit}
+                />
                 <VendorFields
                     vendor={vendor}
                     receiptNumber={receiptNumber}
@@ -284,6 +323,7 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                                     productId: productId || null,
                                     quantity: productId ? parseInt(quantity || "1", 10) : null,
                                     paymentMethod,
+                                    fromCashRegister,
                                     vendor,
                                     receiptNumber,
                                     isRecurring,
@@ -389,6 +429,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                             </p>
                             <p className="text-[11.5px] text-zinc-500">
                                 {EXPENSE_CATEGORY_META[e.category].label} · {shortDateTime(e.createdAt)} · {PAYMENT_METHOD_LABELS[e.paymentMethod ?? "EFECTIVO"]}
+                                {e.paymentMethod === "EFECTIVO" && e.fromCashRegister === false ? " · fuera de caja" : ""}
                                 {e.product ? ` · +${e.quantity} ${e.product.name} a stock` : ""}
                                 {e.vendor ? ` · ${e.vendor}` : ""}
                             </p>

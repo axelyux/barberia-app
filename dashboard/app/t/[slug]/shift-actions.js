@@ -102,7 +102,11 @@ export async function closeShift(slug, { closingCashCents, notes }) {
         .filter((r) => r.paymentMethod === "EFECTIVO")
         .reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
     const totalExpenseCents = expenses.reduce((sum, e) => sum + e.amountCents, 0);
-    const cashExpenseCents = expenses.filter((e) => e.paymentMethod === "EFECTIVO").reduce((sum, e) => sum + e.amountCents, 0);
+    // Solo los gastos en efectivo que de verdad salieron del cajón (ver Expense.fromCashRegister):
+    // la renta o la luz que el dueño paga por fuera no deben dejar un faltante en la caja.
+    const cashExpenseCents = expenses
+        .filter((e) => e.paymentMethod === "EFECTIVO" && e.fromCashRegister)
+        .reduce((sum, e) => sum + e.amountCents, 0);
     const cashDepositCents = cashMovements.filter((m) => m.type === "DEPOSITO").reduce((sum, m) => sum + m.amountCents, 0);
     const cashWithdrawalCents = cashMovements.filter((m) => m.type === "RETIRO").reduce((sum, m) => sum + m.amountCents, 0);
 

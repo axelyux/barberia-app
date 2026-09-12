@@ -438,6 +438,12 @@ model Expense {
   product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   quantity    Int?
   paymentMethod PaymentMethod @default(EFECTIVO)
+  // Solo aplica a gastos en EFECTIVO: distingue el dinero que salió del cajón del turno
+  // (el proveedor que llegó a media tarde) del que se pagó por fuera (la renta, la luz,
+  // que el dueño paga de su bolsa o del banco). Sin esta distinción, registrar la renta
+  // dejaba la caja con un faltante fantasma. Default true = comportamiento anterior, para
+  // no cambiarle el saldo a los gastos ya registrados.
+  fromCashRegister Boolean       @default(true)
   vendor        String?
   receiptNumber String?
   isRecurring   Boolean         @default(false)

@@ -212,7 +212,7 @@ export default async function TenantPage({ params }) {
         .filter((r) => r.paymentMethod === "EFECTIVO")
         .reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
     const shiftCashExpenseCents = expenses30
-        .filter((e) => sinceShiftStart(e.createdAt) && e.paymentMethod === "EFECTIVO")
+        .filter((e) => sinceShiftStart(e.createdAt) && e.paymentMethod === "EFECTIVO" && e.fromCashRegister)
         .reduce((sum, e) => sum + e.amountCents, 0);
     const shiftCashDepositCents = cashMovements.filter((m) => m.type === "DEPOSITO").reduce((sum, m) => sum + m.amountCents, 0);
     const shiftCashWithdrawalCents = cashMovements.filter((m) => m.type === "RETIRO").reduce((sum, m) => sum + m.amountCents, 0);

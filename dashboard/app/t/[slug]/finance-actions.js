@@ -18,7 +18,7 @@ async function nextExpenseFolio(db, tenantId) {
 
 export async function createExpense(
     slug,
-    { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
+    { category, description, amountCents, productId, quantity, paymentMethod, fromCashRegister, vendor, receiptNumber, isRecurring, paidByName, createdAt }
 ) {
     const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
@@ -33,6 +33,7 @@ export async function createExpense(
         productId: productId || null,
         quantity: qty,
         paymentMethod: paymentMethod || "EFECTIVO",
+        fromCashRegister: fromCashRegister !== false,
         vendor: vendor?.trim() || null,
         receiptNumber: receiptNumber?.trim() || null,
         isRecurring: !!isRecurring,
@@ -56,7 +57,7 @@ export async function createExpense(
 export async function updateExpense(
     expenseId,
     slug,
-    { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
+    { category, description, amountCents, productId, quantity, paymentMethod, fromCashRegister, vendor, receiptNumber, isRecurring, paidByName, createdAt }
 ) {
     const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "edit");
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
@@ -72,6 +73,7 @@ export async function updateExpense(
         productId: productId || null,
         quantity: newQty,
         paymentMethod: paymentMethod || "EFECTIVO",
+        fromCashRegister: fromCashRegister !== false,
         vendor: vendor?.trim() || null,
         receiptNumber: receiptNumber?.trim() || null,
         isRecurring: !!isRecurring,
@@ -136,6 +138,7 @@ export async function exportExpensesCSV(slug, { from, to }) {
         { label: "Descripción", value: (e) => e.description },
         { label: "Monto", value: (e) => (e.amountCents / 100).toFixed(2) },
         { label: "Método de pago", value: (e) => e.paymentMethod },
+        { label: "Salió de la caja", value: (e) => (e.paymentMethod === "EFECTIVO" ? (e.fromCashRegister ? "Sí" : "No") : "") },
         { label: "Producto comprado", value: (e) => (e.product ? `${e.product.name} x${e.quantity}` : "") },
         { label: "Proveedor", value: (e) => e.vendor ?? "" },
         { label: "Folio/factura", value: (e) => e.receiptNumber ?? "" },
