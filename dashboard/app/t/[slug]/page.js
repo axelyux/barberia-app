@@ -6,6 +6,7 @@ import TenantBoard from "@/components/TenantBoard";
 import OpenShiftGate from "@/components/OpenShiftGate";
 import { buildFinanceData } from "@/lib/finance";
 import { ALL_PAYMENT_METHODS } from "@/lib/payments";
+import { zonedNow, TENANT_TIME_ZONE } from "@/lib/scheduling";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export default async function TenantPage({ params }) {
         );
     }
 
-    const startOfToday = new Date();
+    const startOfToday = zonedNow();
     startOfToday.setHours(0, 0, 0, 0);
     const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
     const start30 = new Date(startOfToday.getTime() - 29 * 24 * 60 * 60 * 1000);
@@ -211,7 +212,7 @@ export default async function TenantPage({ params }) {
     const expectedCashCents =
         openShift.openingCashCents + shiftCashRevenueCents - shiftCashExpenseCents + shiftCashDepositCents - shiftCashWithdrawalCents;
 
-    const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+    const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: TENANT_TIME_ZONE });
 
     return (
         <main className="min-h-screen bg-zinc-950">

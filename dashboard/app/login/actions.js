@@ -6,7 +6,8 @@ import { verifyPassword, createSession, destroySession } from "@/lib/auth";
 import { checkRateLimit, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
 
 export async function login(prevState, formData) {
-    const tenantSlug = String(formData.get("tenantSlug") ?? "").trim().toLowerCase();
+    const rawBarberia = String(formData.get("tenantSlug") ?? "").trim();
+    const tenantSlug = rawBarberia.toLowerCase();
     const username = String(formData.get("username") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
     const rateLimitKey = `staff:${tenantSlug}:${username}`;
@@ -17,9 +18,13 @@ export async function login(prevState, formData) {
     }
 
     // username es único solo por barbería (varias barberías pueden tener "admin"),
-    // así que sin escopear por tenantSlug esto haría login en la barbería equivocada.
+    // así que sin escopear por tenant esto haría login en la barbería equivocada. El
+    // campo "Barbería" acepta tanto el slug original (fijo desde que se creó, ej.
+    // "sable-barber-studio") como el nombre actual (ej. "Sable Barber Studio") —
+    // cualquiera que renombre su barbería desde Ajustes espera poder seguir entrando
+    // con ese nuevo nombre, no con un identificador que nunca vio.
     const user = await prisma.staffUser.findFirst({
-        where: { username, tenant: { slug: tenantSlug } },
+        where: { username, tenant: { OR: [{ slug: tenantSlug }, { name: { equals: rawBarberia, mode: "insensitive" } }] } },
         include: { tenant: true },
     });
     if (!user || !user.active || !verifyPassword(password, user.passwordHash)) {
@@ -48,10 +53,11 @@ export async function logout() {
 // información sensible (ya se ve en los mensajes de WhatsApp del bot), así que no
 // requiere sesión. Se usa solo para la vista previa mientras el usuario escribe.
 export async function getTenantBrand(slug) {
-    const tenantSlug = String(slug ?? "").trim().toLowerCase();
+    const rawBarberia = String(slug ?? "").trim();
+    const tenantSlug = rawBarberia.toLowerCase();
     if (!tenantSlug) return null;
-    const tenant = await prisma.tenant.findUnique({
-        where: { slug: tenantSlug },
+    const tenant = await prisma.tenant.findFirst({
+        where: { OR: [{ slug: tenantSlug }, { name: { equals: rawBarberia, mode: "insensitive" } }] },
         select: { name: true, brandColor: true, logoUrl: true, status: true, nextDueDate: true },
     });
     if (tenant?.nextDueDate) tenant.nextDueDate = tenant.nextDueDate.toISOString();
