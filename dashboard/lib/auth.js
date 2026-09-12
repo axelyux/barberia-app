@@ -2,6 +2,7 @@ import { timingSafeEqual, createHmac } from "crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { SESSION_SECRET } from "@/lib/env";
+import { DEFAULT_TIME_ZONE } from "@/lib/scheduling";
 
 export { hashPassword, verifyPassword } from "@/lib/password";
 
@@ -101,7 +102,10 @@ export async function requireTenantSession(slug, moduleKey, action) {
         const field = { view: "canView", add: "canAdd", edit: "canEdit", delete: "canDelete" }[action];
         if (!perm?.[field]) throw new Error("No tienes permiso para hacer esto.");
     }
-    return { user, tenantId: user.tenantId };
+    // timeZone se devuelve aquí porque casi toda acción que toca fechas lo necesita (qué
+    // hora "es" en la barbería, a qué día pertenece una venta) y así no hay que volver a
+    // consultar el tenant en cada una.
+    return { user, tenantId: user.tenantId, timeZone: user.tenant.timeZone ?? DEFAULT_TIME_ZONE };
 }
 
 // --- Sesión del dueño de la plataforma (admin supremo), separada de la de cada barbería ---

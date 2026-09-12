@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireTenantSession } from "@/lib/auth";
 import { shiftLabel } from "@/lib/format";
+import { tenantDayStartInstant } from "@/lib/scheduling";
 
 // Reportes de un rango de fechas que elige el usuario. Todo sale de lo que ya se registró
 // (turnos, ventas, gastos, citas) — aquí no se calcula nada nuevo, solo se agrupa.
@@ -10,9 +11,11 @@ import { shiftLabel } from "@/lib/format";
 // Los tres reportes se arman en una sola llamada a propósito: el usuario elige el rango una
 // vez y espera un solo viaje al servidor, en vez de tres esperas seguidas.
 export async function getReports(slug, { from, to }) {
-    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
-    const desde = new Date(from);
-    const hasta = new Date(to);
+    const { tenantId, timeZone } = await requireTenantSession(slug, "FINANZAS", "view");
+    // "Del 1 al 12" son días de calendario de la barbería, no instantes UTC: así una venta
+    // de las 7 p.m. del día 12 entra en el reporte del 12.
+    const desde = tenantDayStartInstant(String(from).slice(0, 10), timeZone);
+    const hasta = new Date(tenantDayStartInstant(String(to).slice(0, 10), timeZone).getTime() + 24 * 60 * 60 * 1000 - 1);
     const rango = { gte: desde, lte: hasta };
 
     const [shifts, productSales, serviceSales, expenses, completedBookings, barbers, cashMovements] = await Promise.all([

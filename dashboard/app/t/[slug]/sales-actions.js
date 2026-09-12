@@ -7,7 +7,17 @@ import { toCSV } from "@/lib/csv";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
 import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
 import { shiftLabel } from "@/lib/format";
+import { tenantDayStartInstant } from "@/lib/scheduling";
 import { problem } from "@/lib/action-result";
+
+// El rango llega como "2026-09-01T00:00:00" y "2026-09-12T23:59:59": son fechas de
+// calendario de la barbería, no instantes. Se traducen al instante real en que empieza ese
+// día allá, para que una venta de las 7 p.m. del último día sí entre en el rango.
+function rangeToInstants({ from, to }, timeZone) {
+    const desde = tenantDayStartInstant(String(from).slice(0, 10), timeZone);
+    const hasta = new Date(tenantDayStartInstant(String(to).slice(0, 10), timeZone).getTime() + 24 * 60 * 60 * 1000 - 1);
+    return { gte: desde, lte: hasta };
+}
 
 const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
 const plainCustomer = (c) => (c ? { ...c, createdAt: c.createdAt.toISOString() } : null);
@@ -266,8 +276,8 @@ export async function cancelServiceSale(saleId, slug, { reason } = {}) {
 
 // ------------------------------------------------------------------- Rango de fechas / export
 export async function getSalesForRange(slug, { from, to }) {
-    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "view");
-    const range = { gte: new Date(from), lte: new Date(to) };
+    const { tenantId, timeZone } = await requireTenantSession(slug, "PRODUCTOS", "view");
+    const range = rangeToInstants({ from, to }, timeZone);
 
     const [productSales, serviceSales] = await Promise.all([
         prisma.productSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } } }),
@@ -301,8 +311,8 @@ export async function getSalesForRange(slug, { from, to }) {
 }
 
 export async function exportSalesCSV(slug, { from, to }) {
-    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "view");
-    const range = { gte: new Date(from), lte: new Date(to) };
+    const { tenantId, timeZone } = await requireTenantSession(slug, "PRODUCTOS", "view");
+    const range = rangeToInstants({ from, to }, timeZone);
 
     const [productSales, serviceSales] = await Promise.all([
         prisma.productSale.findMany({ where: { tenantId, createdAt: range }, include: { barber: true, customer: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } } }),

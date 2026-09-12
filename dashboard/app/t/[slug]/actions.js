@@ -8,6 +8,18 @@ import { validateBookingAvailability, formatTime12h } from "@/lib/scheduling";
 import { findOwnedOrThrow, updateOwned, deleteOwned } from "@/lib/tenant-guard";
 import { problem } from "@/lib/action-result";
 
+// El panel manda el día como fecha de calendario ("2026-09-12"). Se arma en el marco UTC,
+// el mismo en el que se guardan las horas de las citas (ver la convención en lib/scheduling.js).
+function dayKeyToUTC(dayKey) {
+    const [y, m, d] = String(dayKey).split("-").map((n) => parseInt(n, 10));
+    if (!y || !m || !d) {
+        // Tolera el formato viejo (instante ISO completo) por si queda alguna pantalla abierta.
+        const fallback = new Date(dayKey);
+        return new Date(Date.UTC(fallback.getUTCFullYear(), fallback.getUTCMonth(), fallback.getUTCDate()));
+    }
+    return new Date(Date.UTC(y, m - 1, d));
+}
+
 // Devuelve el texto a mostrar, no un Error: estos son problemas que el usuario puede
 // corregir (elegir otra hora), y los mensajes de los errores lanzados no sobreviven a
 // producción — ver lib/action-result.js.
@@ -34,8 +46,7 @@ async function withSerializableRetry(fn) {
 
 export async function getBookingsForDate(slug, dateISO) {
     const { tenantId } = await requireTenantSession(slug, "CITAS", "view");
-    const dayStart = new Date(dateISO);
-    dayStart.setHours(0, 0, 0, 0);
+    const dayStart = dayKeyToUTC(dateISO);
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
     const bookings = await prisma.booking.findMany({
@@ -75,13 +86,12 @@ export async function cancelBooking(bookingId, slug) {
 }
 
 export async function createBooking(slug, { customerName, customerPhone, serviceId, barberId, dateISO, hour, minute }) {
-    const { tenantId } = await requireTenantSession(slug, "CITAS", "add");
+    const { tenantId, timeZone } = await requireTenantSession(slug, "CITAS", "add");
     if (!customerName?.trim()) return problem("El nombre del cliente es obligatorio.");
 
-    const dayStart = new Date(dateISO);
-    dayStart.setHours(0, 0, 0, 0);
+    const dayStart = dayKeyToUTC(dateISO);
     const scheduledAt = new Date(dayStart);
-    scheduledAt.setHours(hour, minute, 0, 0);
+    scheduledAt.setUTCHours(hour, minute, 0, 0);
 
     const service = serviceId ? await findOwnedOrThrow("service", serviceId, tenantId, "Servicio no encontrado") : null;
     const barber = barberId ? await findOwnedOrThrow("barber", barberId, tenantId, "Barbero no encontrado") : null;
@@ -96,6 +106,7 @@ export async function createBooking(slug, { customerName, customerPhone, service
                     scheduledAt,
                     durationMin,
                     barberId: barber?.id ?? null,
+                    timeZone,
                 });
                 // Salir de la transacción devolviendo el motivo (en vez de lanzarlo) deja
                 // la validación intacta: no se creó nada, y el texto sí llega a pantalla.
@@ -108,7 +119,7 @@ export async function createBooking(slug, { customerName, customerPhone, service
                         customerPhone: customerPhone?.trim() || "—",
                         serviceId: service?.id,
                         barberId: barber?.id ?? null,
-                        day: dayStart.toLocaleDateString("es-MX"),
+                        day: dayStart.toLocaleDateString("es-MX", { timeZone: "UTC" }),
                         time: formatTime12h(scheduledAt),
                         scheduledAt,
                         durationMin,
@@ -126,7 +137,7 @@ export async function createBooking(slug, { customerName, customerPhone, service
 }
 
 export async function updateBooking(bookingId, slug, { customerName, customerPhone, serviceId, barberId }) {
-    const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
+    const { tenantId, timeZone } = await requireTenantSession(slug, "CITAS", "edit");
     if (!customerName?.trim()) return problem("El nombre del cliente es obligatorio.");
 
     const existing = await findOwnedOrThrow("booking", bookingId, tenantId, "Cita no encontrada");
@@ -148,6 +159,7 @@ export async function updateBooking(bookingId, slug, { customerName, customerPho
                         durationMin,
                         barberId: barber?.id ?? null,
                         excludeBookingId: bookingId,
+                        timeZone,
                     });
                     if (!result.ok) return conflictMessage(result);
 

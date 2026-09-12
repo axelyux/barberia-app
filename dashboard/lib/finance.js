@@ -1,10 +1,6 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { tenantDayKey, DEFAULT_TIME_ZONE } from "@/lib/scheduling";
 
-const startOfDay = (d) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const itemName = (s) => s.productName ?? s.serviceName;
 const netTotalOf = (s) => (s.priceCents ?? 0) - (s.discountCents ?? 0) + (s.tipCents ?? 0);
@@ -18,30 +14,50 @@ export const EXPENSE_CATEGORY_META = {
 };
 
 // Arma la serie diaria (7 días) de ingresos vs gastos, y el desglose de gastos por categoría (30 días).
-export function buildFinanceData({ completedBookings, productSales, serviceSales = [], expenses30: allExpenses30, barbers = [] }) {
+export function buildFinanceData({
+    completedBookings,
+    productSales,
+    serviceSales = [],
+    expenses30: allExpenses30,
+    barbers = [],
+    timeZone = DEFAULT_TIME_ZONE,
+}) {
     // Una venta cancelada no es ingreso, no genera comisión y no entra a ninguna gráfica:
     // se conserva solo como registro de que existió (ver cancelProductSale/cancelServiceSale).
     const sales = [...productSales, ...serviceSales].filter((s) => !s.cancelledAt);
     // Mismo criterio para los gastos cancelados (ver cancelExpense).
     const expenses30 = allExpenses30.filter((e) => !e.cancelledAt);
-    const today0 = startOfDay(new Date());
+    // Los días se agrupan por la fecha de calendario DE LA BARBERÍA. Antes se agrupaba por
+    // el día del servidor (UTC), así que una venta de las 7 p.m. caía en el día siguiente —
+    // y la barbería cierra a las 8 u 11 p.m., o sea buena parte del día se contaba mal.
+    const hoyKey = tenantDayKey(new Date(), timeZone);
+    const [hy, hm, hd] = hoyKey.split("-").map((n) => parseInt(n, 10));
+    const hoyUTC = Date.UTC(hy, hm - 1, hd);
     const days = [];
     for (let i = 6; i >= 0; i--) {
-        const date = new Date(today0.getTime() - i * DAY_MS);
-        days.push({ date, key: date.toDateString(), label: date.toLocaleDateString("es-MX", { weekday: "short" }), revenueCents: 0, expenseCents: 0 });
+        const date = new Date(hoyUTC - i * DAY_MS);
+        days.push({
+            date,
+            key: date.toISOString().slice(0, 10),
+            label: date.toLocaleDateString("es-MX", { weekday: "short", timeZone: "UTC" }),
+            revenueCents: 0,
+            expenseCents: 0,
+        });
     }
     const dayByKey = Object.fromEntries(days.map((d) => [d.key, d]));
 
     for (const b of completedBookings) {
-        const key = new Date(b.scheduledAt ?? b.createdAt).toDateString();
+        // scheduledAt se guarda como hora de pared en marco UTC (ver lib/scheduling.js), así
+        // que su día se lee directo; createdAt sí es un instante real y se traduce a la zona.
+        const key = b.scheduledAt ? new Date(b.scheduledAt).toISOString().slice(0, 10) : tenantDayKey(b.createdAt, timeZone);
         if (dayByKey[key]) dayByKey[key].revenueCents += b.amountPaidCents ?? 0;
     }
     for (const s of sales) {
-        const key = new Date(s.createdAt).toDateString();
+        const key = tenantDayKey(s.createdAt, timeZone);
         if (dayByKey[key]) dayByKey[key].revenueCents += s.amountPaidCents ?? 0;
     }
     for (const e of expenses30) {
-        const key = new Date(e.createdAt).toDateString();
+        const key = tenantDayKey(e.createdAt, timeZone);
         if (dayByKey[key]) dayByKey[key].expenseCents += e.amountCents;
     }
 

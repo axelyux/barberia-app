@@ -136,6 +136,10 @@ model Tenant {
   // Minutos de anticipación mínima para aceptar una cita por WhatsApp: evita que
   // alguien agende "ya mismo" cuando la barbería está por cerrar o sin margen.
   bookingMinNoticeMin Int @default(30)
+  // Zona horaria de la barbería (IANA, ej. "America/Tijuana"). México tiene cuatro husos,
+  // así que no puede estar fija en el código: de eso depende qué hora "es" para validar
+  // citas, y qué ventas cuentan como del día de hoy.
+  timeZone            String @default("America/Mexico_City")
   // Contadores para el folio consecutivo que se le pone a cada venta/gasto (ProductSale y
   // ServiceSale comparten uno solo, porque en pantalla se ven mezclados en una sola lista
   // de "Ventas" — si cada tabla llevara su propio contador, dos ventas seguidas podrían

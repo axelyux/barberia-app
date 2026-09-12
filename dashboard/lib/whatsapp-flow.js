@@ -87,12 +87,12 @@ async function getFlowMessage(tenantId, key, fallback) {
 }
 
 async function getBusinessHoursFor(tenantId, date) {
-    const row = await prisma.businessHour.findUnique({ where: { tenantId_weekday: { tenantId, weekday: date.getDay() } } });
+    const row = await prisma.businessHour.findUnique({ where: { tenantId_weekday: { tenantId, weekday: date.getUTCDay() } } });
     return row ?? FALLBACK_HOURS;
 }
 
-async function checkOpenNow(tenantId) {
-    const now = zonedNow();
+async function checkOpenNow(tenantId, timeZone) {
+    const now = zonedNow(timeZone);
     const hours = await getBusinessHoursFor(tenantId, now);
     const open = isWithinBusinessHours(now, 1, hours);
     const hoursText = hours.isClosed ? "cerrado hoy" : `de ${formatMinutesLabel(hours.openMin)} a ${formatMinutesLabel(hours.closeMin)}`;
@@ -147,7 +147,7 @@ async function getStep(tenantId, phone) {
 // --- Pasos del flujo de agendar cita ---
 
 async function askServiceStep(tenant, from) {
-    const { open, hoursText } = await checkOpenNow(tenant.id);
+    const { open, hoursText } = await checkOpenNow(tenant.id, tenant.timeZone);
     if (!open) {
         const closedText = await getFlowMessage(
             tenant.id,
@@ -189,7 +189,7 @@ async function askDayStep(tenant, from, data) {
 // barberos activos), buscamos cuál de ellos está libre a esa hora exacta — nunca se asigna
 // "nadie" ni se bloquea la cita solo porque ALGÚN barbero (no necesariamente el que
 // atendería) esté ocupado a esa hora.
-async function findFreeBarberAmong(prismaClient, tenantId, scheduledAt, durationMin, minNoticeMin, barbers) {
+async function findFreeBarberAmong(prismaClient, tenantId, scheduledAt, durationMin, minNoticeMin, barbers, timeZone) {
     for (const barber of barbers) {
         const check = await validateBookingAvailability({
             prisma: prismaClient,
@@ -198,6 +198,7 @@ async function findFreeBarberAmong(prismaClient, tenantId, scheduledAt, duration
             durationMin,
             minNoticeMin,
             barberId: barber.id,
+            timeZone,
         });
         if (check.ok) return barber;
     }
@@ -207,12 +208,13 @@ async function findFreeBarberAmong(prismaClient, tenantId, scheduledAt, duration
 // Horarios libres del día para "cualquiera disponible": la unión de lo que cada barbero
 // activo tiene libre, no solo lo que TODOS tienen libre a la vez — así un cliente sí puede
 // agendar a una hora en la que un barbero está ocupado pero otro no.
-function buildAvailableSlotsAnyBarber(dayStart, durationMin, existing, dayHours, minNoticeMin, barbers) {
+function buildAvailableSlotsAnyBarber(dayStart, durationMin, existing, dayHours, minNoticeMin, barbers, timeZone) {
     const seen = new Set();
     const merged = [];
     for (const barber of barbers) {
         const slots = buildAvailableSlots(dayStart, durationMin, existing, dayHours, {
             minNoticeMin,
+            now: zonedNow(timeZone),
             maxSlots: 20,
             barberId: barber.id,
         });
@@ -279,9 +281,9 @@ async function handleDayCapture(tenant, from, body, data) {
         await sendText(tenant, from, "No entendí. Elige *Hoy* o *Mañana* con los botones.");
         return;
     }
-    const dayStart = zonedNow();
-    dayStart.setDate(dayStart.getDate() + day);
-    dayStart.setHours(0, 0, 0, 0);
+    const dayStart = zonedNow(tenant.timeZone);
+    dayStart.setUTCDate(dayStart.getUTCDate() + day);
+    dayStart.setUTCHours(0, 0, 0, 0);
     const dayHours = await getBusinessHoursFor(tenant.id, dayStart);
 
     // En vez de obligar a escribir "agendar" desde cero (perdiendo el servicio/barbero ya
@@ -298,6 +300,7 @@ async function handleDayCapture(tenant, from, body, data) {
     if (data.barberId) {
         slots = buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, {
             minNoticeMin: tenant.bookingMinNoticeMin,
+            now: zonedNow(tenant.timeZone),
             maxSlots: 10,
             barberId: data.barberId,
         });
@@ -305,8 +308,12 @@ async function handleDayCapture(tenant, from, body, data) {
         const barbers = await prisma.barber.findMany({ where: { tenantId: tenant.id, active: true } });
         slots =
             barbers.length > 0
-                ? buildAvailableSlotsAnyBarber(dayStart, data.durationMin, existing, dayHours, tenant.bookingMinNoticeMin, barbers)
-                : buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, { minNoticeMin: tenant.bookingMinNoticeMin, maxSlots: 10 });
+                ? buildAvailableSlotsAnyBarber(dayStart, data.durationMin, existing, dayHours, tenant.bookingMinNoticeMin, barbers, tenant.timeZone)
+                : buildAvailableSlots(dayStart, data.durationMin, existing, dayHours, {
+                      minNoticeMin: tenant.bookingMinNoticeMin,
+                      now: zonedNow(tenant.timeZone),
+                      maxSlots: 10,
+                  });
     }
     if (slots.length === 0) {
         await sendButtons(
@@ -344,16 +351,16 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
         return;
     }
 
-    const dayStart = zonedNow();
-    dayStart.setDate(dayStart.getDate() + data.dayOffset);
-    dayStart.setHours(0, 0, 0, 0);
+    const dayStart = zonedNow(tenant.timeZone);
+    dayStart.setUTCDate(dayStart.getUTCDate() + data.dayOffset);
+    dayStart.setUTCHours(0, 0, 0, 0);
     const scheduledAt = new Date(dayStart);
-    scheduledAt.setHours(parsed.hour, parsed.minute, 0, 0);
+    scheduledAt.setUTCHours(parsed.hour, parsed.minute, 0, 0);
 
     // Si no dijo am/pm y la hora ya no alcanza, se asume que quiso decir tarde/noche
     // ("9:00" a las 8pm es 9pm, no 9am) — evita agendar citas en el pasado.
-    if (!parsed.explicitMeridiem && !meetsMinimumNotice(scheduledAt, tenant.bookingMinNoticeMin) && parsed.hour < 12) {
-        scheduledAt.setHours(parsed.hour + 12, parsed.minute, 0, 0);
+    if (!parsed.explicitMeridiem && !meetsMinimumNotice(scheduledAt, tenant.bookingMinNoticeMin, zonedNow(tenant.timeZone)) && parsed.hour < 12) {
+        scheduledAt.setUTCHours(parsed.hour + 12, parsed.minute, 0, 0);
     }
 
     // Con barbero específico, se valida contra su agenda; con "cualquiera", basta con que
@@ -367,6 +374,7 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
             scheduledAt,
             durationMin: data.durationMin,
             minNoticeMin: tenant.bookingMinNoticeMin,
+            timeZone: tenant.timeZone,
             barberId: data.barberId,
         });
         if (!check.ok) {
@@ -379,7 +387,7 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
     } else {
         const barbers = await prisma.barber.findMany({ where: { tenantId: tenant.id, active: true } });
         if (barbers.length > 0) {
-            const free = await findFreeBarberAmong(prisma, tenant.id, scheduledAt, data.durationMin, tenant.bookingMinNoticeMin, barbers);
+            const free = await findFreeBarberAmong(prisma, tenant.id, scheduledAt, data.durationMin, tenant.bookingMinNoticeMin, barbers, tenant.timeZone);
             if (!free) {
                 await sendText(tenant, from, "ⓘ Esa hora ya está ocupada con todos los barberos disponibles. Prueba con otro horario.");
                 return;
@@ -391,6 +399,7 @@ async function handleTimeCapture(tenant, from, body, data, pushName) {
                 scheduledAt,
                 durationMin: data.durationMin,
                 minNoticeMin: tenant.bookingMinNoticeMin,
+            timeZone: tenant.timeZone,
             });
             if (!check.ok) {
                 const suggestion = check.alternatives?.length
@@ -421,6 +430,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
                         scheduledAt: when,
                         durationMin,
                         minNoticeMin: tenant.bookingMinNoticeMin,
+            timeZone: tenant.timeZone,
                         barberId: assignedBarberId,
                     });
                     if (!check.ok) throw new Error("SLOT_TAKEN");
@@ -430,7 +440,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
                         // "Cualquiera disponible": se decide AQUÍ, dentro de la transacción serializable,
                         // cuál barbero queda asignado — así dos clientes pidiendo "cualquiera" a la vez
                         // nunca terminan asignados los dos al mismo barbero por una condición de carrera.
-                        const free = await findFreeBarberAmong(tx, tenant.id, when, durationMin, tenant.bookingMinNoticeMin, barbers);
+                        const free = await findFreeBarberAmong(tx, tenant.id, when, durationMin, tenant.bookingMinNoticeMin, barbers, tenant.timeZone);
                         if (!free) throw new Error("SLOT_TAKEN");
                         assignedBarberId = free.id;
                         assignedBarberName = free.name;
@@ -441,6 +451,7 @@ async function finalizeBooking(tenant, from, data, pushName) {
                             scheduledAt: when,
                             durationMin,
                             minNoticeMin: tenant.bookingMinNoticeMin,
+            timeZone: tenant.timeZone,
                         });
                         if (!check.ok) throw new Error("SLOT_TAKEN");
                     }
@@ -519,7 +530,7 @@ const HUMAN_HANDOFF_KEYWORDS = [
 const HUMAN_TAKEOVER_MS = 2 * 60 * 60 * 1000;
 
 async function replyWelcome(tenant, from) {
-    const { open, hoursText } = await checkOpenNow(tenant.id);
+    const { open, hoursText } = await checkOpenNow(tenant.id, tenant.timeZone);
     if (!open) {
         const closedText = await getFlowMessage(tenant.id, "CLOSED", `Ahora mismo estamos cerrados (hoy ${hoursText}). Escríbenos cuando abramos.`);
         await sendText(tenant, from, closedText);

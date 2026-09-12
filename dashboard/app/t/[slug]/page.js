@@ -6,7 +6,7 @@ import TenantBoard from "@/components/TenantBoard";
 import OpenShiftGate from "@/components/OpenShiftGate";
 import { buildFinanceData } from "@/lib/finance";
 import { ALL_PAYMENT_METHODS } from "@/lib/payments";
-import { zonedNow, TENANT_TIME_ZONE } from "@/lib/scheduling";
+import { zonedNow, tenantDayStartInstant, tenantDayKey, DEFAULT_TIME_ZONE } from "@/lib/scheduling";
 import { shiftLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -52,10 +52,16 @@ export default async function TenantPage({ params }) {
         );
     }
 
-    const startOfToday = zonedNow();
-    startOfToday.setHours(0, 0, 0, 0);
+    const timeZone = tenant.timeZone ?? DEFAULT_TIME_ZONE;
+    // Citas: scheduledAt vive en el marco UTC de hora de pared (ver lib/scheduling.js).
+    const startOfToday = zonedNow(timeZone);
+    startOfToday.setUTCHours(0, 0, 0, 0);
     const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-    const start30 = new Date(startOfToday.getTime() - 29 * 24 * 60 * 60 * 1000);
+    // Ventas y gastos: createdAt sí es un instante real, así que el inicio del rango de 30
+    // días se calcula como el instante en que empezó ese día EN LA BARBERÍA.
+    const hoyKey = tenantDayKey(new Date(), timeZone);
+    const inicioHoy = tenantDayStartInstant(hoyKey, timeZone);
+    const start30 = new Date(inicioHoy.getTime() - 29 * 24 * 60 * 60 * 1000);
 
     const [
         bookings,
@@ -141,6 +147,7 @@ export default async function TenantPage({ params }) {
         serviceSales: serviceSales30,
         expenses30,
         barbers,
+        timeZone,
     });
 
     const plainTenant = {
@@ -276,7 +283,7 @@ export default async function TenantPage({ params }) {
         })),
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: TENANT_TIME_ZONE });
+    const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone });
 
     return (
         <main className="min-h-screen bg-zinc-950">

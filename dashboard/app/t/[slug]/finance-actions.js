@@ -6,8 +6,18 @@ import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
 import { shiftLabel } from "@/lib/format";
+import { tenantDayStartInstant } from "@/lib/scheduling";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
 import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
+
+// El rango llega como "2026-09-01T00:00:00" y "2026-09-12T23:59:59": son fechas de
+// calendario de la barbería, no instantes. Se traducen al instante real en que empieza ese
+// día allá, para que una venta de las 7 p.m. del último día sí entre en el rango.
+function rangeToInstants({ from, to }, timeZone) {
+    const desde = tenantDayStartInstant(String(from).slice(0, 10), timeZone);
+    const hasta = new Date(tenantDayStartInstant(String(to).slice(0, 10), timeZone).getTime() + 24 * 60 * 60 * 1000 - 1);
+    return { gte: desde, lte: hasta };
+}
 
 // Folio consecutivo (#1, #2, #3...) puramente interno, para diferenciar un gasto de otro
 // de un vistazo — no tiene nada que ver con receiptNumber (el folio/factura que puso el
@@ -119,9 +129,9 @@ export async function updateExpense(
 }
 
 export async function getExpensesForRange(slug, { from, to }) {
-    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
+    const { tenantId, timeZone } = await requireTenantSession(slug, "FINANZAS", "view");
     const expenses = await prisma.expense.findMany({
-        where: { tenantId, createdAt: { gte: new Date(from), lte: new Date(to) } },
+        where: { tenantId, createdAt: rangeToInstants({ from, to }, timeZone) },
         include: { product: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
         orderBy: { createdAt: "desc" },
     });
@@ -135,9 +145,9 @@ export async function getExpensesForRange(slug, { from, to }) {
 }
 
 export async function exportExpensesCSV(slug, { from, to }) {
-    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
+    const { tenantId, timeZone } = await requireTenantSession(slug, "FINANZAS", "view");
     const expenses = await prisma.expense.findMany({
-        where: { tenantId, createdAt: { gte: new Date(from), lte: new Date(to) } },
+        where: { tenantId, createdAt: rangeToInstants({ from, to }, timeZone) },
         include: { product: true, cashShift: { select: { id: true, startedAt: true, shiftType: { select: { name: true } } } } },
         orderBy: { createdAt: "asc" },
     });

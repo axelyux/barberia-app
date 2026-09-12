@@ -6,6 +6,8 @@ import { useState, useTransition } from "react";
 import SheetButton from "@/components/SheetButton";
 import { contrastText } from "@/lib/format";
 import { updateBusinessHours } from "@/app/t/[slug]/hours-actions";
+import { TIME_ZONES, DEFAULT_TIME_ZONE } from "@/lib/scheduling";
+import { problemMessage } from "@/lib/action-result";
 
 const DAY_LABELS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -24,6 +26,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
     });
     const [days, setDays] = useState(initial);
     const [minNotice, setMinNotice] = useState(String(tenant.bookingMinNoticeMin ?? 30));
+    const [timeZone, setTimeZone] = useState(tenant.timeZone ?? DEFAULT_TIME_ZONE);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
@@ -37,7 +40,11 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
         setSaved(false);
         startTransition(async () => {
             try {
-                await updateBusinessHours(tenant.slug, days, parseInt(minNotice, 10) || 0);
+                const problema = problemMessage(await updateBusinessHours(tenant.slug, days, parseInt(minNotice, 10) || 0, timeZone));
+                if (problema) {
+                    setError(problema);
+                    return;
+                }
                 setSaved(true);
             } catch (err) {
                 setError(friendlyError(err));
@@ -52,6 +59,24 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                 <p className="mb-3.5 text-xs text-zinc-500">
                     El bot avisa automáticamente si te escriben fuera de estas horas.
                 </p>
+                <div className="mb-3.5">
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Zona horaria</p>
+                    <select
+                        value={timeZone}
+                        onChange={(e) => setTimeZone(e.target.value)}
+                        disabled={!perms.canEdit}
+                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] focus:border-amber-500/70 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {TIME_ZONES.map((z) => (
+                            <option key={z.value} value={z.value}>
+                                {z.label}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                        De esto dependen los horarios de las citas y a qué día pertenece cada venta.
+                    </p>
+                </div>
                 <div className="flex flex-col divide-y divide-white/10/80">
                     {days.map((d) => (
                         <div key={d.weekday} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
