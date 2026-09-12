@@ -18,6 +18,25 @@ function formatWhen(iso) {
     return sameDay ? formatTime(iso) : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
 }
 
+// Mismo criterio que WhatsApp: "Hoy" / "Ayer" / fecha completa para el resto — para que no
+// haya que adivinar el día contando mensajes hacia atrás dentro de una sola conversación.
+function formatDayDivider(iso) {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    if (d.toDateString() === today.toDateString()) return "Hoy";
+    if (d.toDateString() === yesterday.toDateString()) return "Ayer";
+    return d.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined });
+}
+
+function DayDivider({ label }) {
+    return (
+        <div className="flex justify-center py-1">
+            <span className="rounded-md bg-[#182229] px-2.5 py-1 text-[11px] font-semibold text-[#8696a0] shadow">{label}</span>
+        </div>
+    );
+}
+
 function Bubble({ msg }) {
     const isOut = msg.direction === "OUT";
     return (
@@ -198,9 +217,16 @@ export default function ChatInbox({ slug, brandColor, perms }) {
                             </div>
 
                             <div className="flex-1 space-y-2 overflow-y-auto bg-[#0b141a] p-3">
-                                {messages.map((m) => (
-                                    <Bubble key={m.id} msg={m} />
-                                ))}
+                                {messages.map((m, i) => {
+                                    const prev = messages[i - 1];
+                                    const showDivider = !prev || new Date(prev.createdAt).toDateString() !== new Date(m.createdAt).toDateString();
+                                    return (
+                                        <div key={m.id}>
+                                            {showDivider ? <DayDivider label={formatDayDivider(m.createdAt)} /> : null}
+                                            <Bubble msg={m} />
+                                        </div>
+                                    );
+                                })}
                                 <div ref={bottomRef} />
                             </div>
 

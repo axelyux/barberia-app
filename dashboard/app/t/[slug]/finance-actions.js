@@ -8,6 +8,14 @@ import { EXPENSE_CATEGORY_META } from "@/lib/finance";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
 import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
 
+// Folio consecutivo (#1, #2, #3...) puramente interno, para diferenciar un gasto de otro
+// de un vistazo — no tiene nada que ver con receiptNumber (el folio/factura que puso el
+// proveedor, si es que dio uno).
+async function nextExpenseFolio(db, tenantId) {
+    const tenant = await db.tenant.update({ where: { id: tenantId }, data: { expenseFolioSeq: { increment: 1 } }, select: { expenseFolioSeq: true } });
+    return tenant.expenseFolioSeq;
+}
+
 export async function createExpense(
     slug,
     { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
@@ -34,10 +42,12 @@ export async function createExpense(
 
     if (productId) {
         await prisma.$transaction(async (tx) => {
+            data.folio = await nextExpenseFolio(tx, tenantId);
             await tx.expense.create({ data });
             await applyStockMovement(tx, { tenantId, productId, type: "ENTRADA", quantity: qty, reason: "Compra", createdByName: user.name });
         });
     } else {
+        data.folio = await nextExpenseFolio(prisma, tenantId);
         await prisma.expense.create({ data });
     }
     revalidatePath(`/t/${slug}`);
@@ -120,6 +130,7 @@ export async function exportExpensesCSV(slug, { from, to }) {
         orderBy: { createdAt: "asc" },
     });
     return toCSV(expenses, [
+        { label: "Folio", value: (e) => e.folio || "" },
         { label: "Fecha", value: (e) => e.createdAt.toLocaleString("es-MX") },
         { label: "Categoría", value: (e) => EXPENSE_CATEGORY_META[e.category].label },
         { label: "Descripción", value: (e) => e.description },

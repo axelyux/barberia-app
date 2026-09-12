@@ -24,6 +24,15 @@ async function ownedOrNull(model, id, tenantId) {
     return row?.id ?? null;
 }
 
+// Folio consecutivo (#1, #2, #3...) para identificar cada venta de un vistazo — Productos y
+// Servicios comparten el mismo contador porque en pantalla aparecen mezclados en una sola
+// lista de "Ventas". Un solo UPDATE con increment es atómico en Postgres, sin importar
+// cuántas ventas se registren al mismo tiempo.
+async function nextSaleFolio(db, tenantId) {
+    const tenant = await db.tenant.update({ where: { id: tenantId }, data: { saleFolioSeq: { increment: 1 } }, select: { saleFolioSeq: true } });
+    return tenant.saleFolioSeq;
+}
+
 // ------------------------------------------------------------- Ventas de productos (baja stock)
 export async function registerProductSale(
     slug,
@@ -59,6 +68,7 @@ export async function registerProductSale(
     if (createdAt) saleData.createdAt = new Date(createdAt);
 
     await prisma.$transaction(async (tx) => {
+        saleData.folio = await nextSaleFolio(tx, tenantId);
         await tx.productSale.create({ data: saleData });
         await applyStockMovement(tx, { tenantId, productId, type: "SALIDA", quantity: qty, reason: "Venta", createdByName: user.name });
     });
@@ -171,6 +181,7 @@ export async function registerServiceSale(
     };
     if (createdAt) saleData.createdAt = new Date(createdAt);
 
+    saleData.folio = await nextSaleFolio(prisma, tenantId);
     await prisma.serviceSale.create({ data: saleData });
     revalidatePath(`/t/${slug}`);
 }
@@ -264,6 +275,7 @@ export async function exportSalesCSV(slug, { from, to }) {
     ].sort((a, b) => a.createdAt - b.createdAt);
 
     return toCSV(rows, [
+        { label: "Folio", value: (s) => s.folio || "" },
         { label: "Fecha", value: (s) => s.createdAt.toLocaleString("es-MX") },
         { label: "Tipo", value: (s) => s.kind },
         { label: "Nombre", value: (s) => s.name },

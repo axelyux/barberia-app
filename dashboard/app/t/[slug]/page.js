@@ -74,6 +74,7 @@ export default async function TenantPage({ params }) {
         inventoryMovements30,
         cashMovements,
         paymentMethodOverrides,
+        completedBookingsThisShift,
     ] = await Promise.all([
         prisma.booking.findMany({
             where: { tenantId: tenant.id, scheduledAt: { gte: startOfToday, lt: startOfTomorrow } },
@@ -122,6 +123,13 @@ export default async function TenantPage({ params }) {
         }),
         prisma.cashMovement.findMany({ where: { tenantId: tenant.id, cashShiftId: openShift.id }, orderBy: { createdAt: "desc" } }),
         prisma.tenantPaymentMethod.findMany({ where: { tenantId: tenant.id } }),
+        // Mismo criterio exacto que closeShift() en shift-actions.js (completedAt, no
+        // scheduledAt) — si no coincide, el efectivo esperado que se muestra en pantalla
+        // no cuadraría con lo que el sistema calcula de verdad al cerrar el turno.
+        prisma.booking.findMany({
+            where: { tenantId: tenant.id, status: "COMPLETED", completedAt: { gte: openShift.startedAt } },
+            select: { amountPaidCents: true, paymentMethod: true },
+        }),
     ]);
 
     const messagesByKey = Object.fromEntries(flowMessages.map((m) => [m.key, m.text]));
@@ -184,6 +192,25 @@ export default async function TenantPage({ params }) {
     const activePaymentMethods = ALL_PAYMENT_METHODS.filter((m) => overrideByMethod[m] ?? true);
     const paymentMethodStatus = ALL_PAYMENT_METHODS.map((m) => ({ method: m, active: overrideByMethod[m] ?? true }));
 
+    // Mismo cálculo que closeShift() en shift-actions.js — se muestra en pantalla ANTES de
+    // cerrar el turno para que el cajero nunca vea el campo "efectivo contado" en $0.
+    const sinceShiftStart = (d) => new Date(d) >= openShift.startedAt;
+    const shiftRevenueRows = [
+        ...completedBookingsThisShift,
+        ...productSales30.filter((s) => sinceShiftStart(s.createdAt)),
+        ...serviceSales30.filter((s) => sinceShiftStart(s.createdAt)),
+    ];
+    const shiftCashRevenueCents = shiftRevenueRows
+        .filter((r) => r.paymentMethod === "EFECTIVO")
+        .reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
+    const shiftCashExpenseCents = expenses30
+        .filter((e) => sinceShiftStart(e.createdAt) && e.paymentMethod === "EFECTIVO")
+        .reduce((sum, e) => sum + e.amountCents, 0);
+    const shiftCashDepositCents = cashMovements.filter((m) => m.type === "DEPOSITO").reduce((sum, m) => sum + m.amountCents, 0);
+    const shiftCashWithdrawalCents = cashMovements.filter((m) => m.type === "RETIRO").reduce((sum, m) => sum + m.amountCents, 0);
+    const expectedCashCents =
+        openShift.openingCashCents + shiftCashRevenueCents - shiftCashExpenseCents + shiftCashDepositCents - shiftCashWithdrawalCents;
+
     const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
 
     return (
@@ -208,6 +235,7 @@ export default async function TenantPage({ params }) {
                 shiftTypes={plainShiftTypes}
                 shiftHistory={plainShiftHistory}
                 openShift={plainOpenShift}
+                expectedCashCents={expectedCashCents}
                 cashMovements={plainCashMovements}
                 activePaymentMethods={activePaymentMethods}
                 paymentMethodStatus={paymentMethodStatus}

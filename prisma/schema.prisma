@@ -136,6 +136,13 @@ model Tenant {
   // Minutos de anticipación mínima para aceptar una cita por WhatsApp: evita que
   // alguien agende "ya mismo" cuando la barbería está por cerrar o sin margen.
   bookingMinNoticeMin Int @default(30)
+  // Contadores para el folio consecutivo que se le pone a cada venta/gasto (ProductSale y
+  // ServiceSale comparten uno solo, porque en pantalla se ven mezclados en una sola lista
+  // de "Ventas" — si cada tabla llevara su propio contador, dos ventas seguidas podrían
+  // mostrar el mismo número). Se incrementan con un UPDATE atómico, no hace falta
+  // transacción aparte.
+  saleFolioSeq    Int @default(0)
+  expenseFolioSeq Int @default(0)
   status         TenantStatus @default(ACTIVE)
   planPriceCents Int          @default(20000)
   nextDueDate    DateTime?
@@ -296,6 +303,7 @@ model Customer {
 // Venta de un servicio cobrado directo en el mostrador (sin pasar por el flujo de Agenda/citas).
 model ServiceSale {
   id            String        @id @default(cuid())
+  folio         Int           @default(0)
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   serviceId     String?
@@ -413,6 +421,7 @@ model Permission {
 
 model Expense {
   id          String          @id @default(cuid())
+  folio       Int             @default(0)
   tenantId    String
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category    ExpenseCategory
@@ -495,6 +504,7 @@ model InventoryMovement {
 
 model ProductSale {
   id            String        @id @default(cuid())
+  folio         Int           @default(0)
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   productId     String?

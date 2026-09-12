@@ -133,6 +133,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
     const [createOpen, setCreateOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
+    const [visibleCount, setVisibleCount] = useState(5);
     const [isPending, startTransition] = useTransition();
     useGlobalPending(isPending);
 
@@ -175,7 +176,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                 </div>
             ) : (
                 <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
-                    {items.map((item) => (
+                    {items.slice(0, visibleCount).map((item) => (
                         <button
                             key={item.id}
                             onClick={() => {
@@ -203,6 +204,14 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
                     ))}
                 </div>
             )}
+            {items.length > visibleCount ? (
+                <button
+                    onClick={() => setVisibleCount((n) => n + 5)}
+                    className="mt-2.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-zinc-900 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/60"
+                >
+                    Cargar más ({items.length - visibleCount} restantes)
+                </button>
+            ) : null}
 
             {perms.canAdd ? (
                 <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title={`Agregar ${title.toLowerCase()}`}>

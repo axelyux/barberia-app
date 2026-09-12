@@ -381,6 +381,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                     >
                         <div className="min-w-0">
                             <p className="truncate font-semibold text-zinc-100">
+                                {e.folio ? <span className="text-zinc-500">#{e.folio} · </span> : null}
                                 {e.description}
                                 {e.isRecurring ? (
                                     <span className="ml-1.5 rounded-sm bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">recurrente</span>

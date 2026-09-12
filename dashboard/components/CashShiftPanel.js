@@ -67,16 +67,39 @@ function CashMovementForm({ brandStyle, isPending, error, onSave, onCancel }) {
     );
 }
 
-export default function CashShiftPanel({ openShift, shiftHistory, cashMovements: initialCashMovements, slug, brandColor, canClose, canAddCashMovement }) {
-    const [closingCash, setClosingCash] = useState("0");
+export default function CashShiftPanel({
+    openShift,
+    expectedCashCents = 0,
+    shiftHistory,
+    cashMovements: initialCashMovements,
+    slug,
+    brandColor,
+    canClose,
+    canAddCashMovement,
+}) {
+    const [closingCash, setClosingCash] = useState(String(expectedCashCents / 100));
+    const [closingCashTouched, setClosingCashTouched] = useState(false);
     const [notes, setNotes] = useState("");
     const [cashMovements, setCashMovements] = useState(initialCashMovements ?? []);
     const [movementOpen, setMovementOpen] = useState(false);
+    const [visibleHistoryCount, setVisibleHistoryCount] = useState(5);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     useGlobalPending(isPending);
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
     const showToast = useToast();
+
+    // El campo arranca siempre mostrando lo que el sistema calcula que debería haber
+    // (fondo inicial + ventas en efectivo − gastos en efectivo + depósitos − retiros), para
+    // que nunca se vea en $0. Sigue siendo editable a propósito: el cajero cuenta el
+    // dinero físico y corrige aquí si no coincide — así es como "Turnos anteriores" sabe
+    // si faltó o sobró dinero. Si el cajero ya lo tocó, dejamos de pisarle su valor aunque
+    // entren más ventas mientras tiene la pantalla abierta.
+    const [seenExpected, setSeenExpected] = useState(expectedCashCents);
+    if (expectedCashCents !== seenExpected) {
+        setSeenExpected(expectedCashCents);
+        if (!closingCashTouched) setClosingCash(String(expectedCashCents / 100));
+    }
 
     const doClose = () => {
         setError("");
@@ -153,10 +176,24 @@ export default function CashShiftPanel({ openShift, shiftHistory, cashMovements:
             {canClose ? (
                 <div className="mt-3 rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
                     <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Cerrar turno</p>
+                    <div className="mb-3 flex justify-between text-xs text-zinc-400">
+                        <span>Efectivo esperado en caja</span>
+                        <b className="font-numeric text-zinc-200">{money(expectedCashCents)}</b>
+                    </div>
                     <div className="flex flex-col gap-3">
                         <Field label="Efectivo contado en caja (MXN)">
-                            <NumberInput value={closingCash} onChange={(e) => setClosingCash(e.target.value)} min="0" />
+                            <NumberInput
+                                value={closingCash}
+                                onChange={(e) => {
+                                    setClosingCashTouched(true);
+                                    setClosingCash(e.target.value);
+                                }}
+                                min="0"
+                            />
                         </Field>
+                        <p className="-mt-2 text-[11px] text-zinc-500">
+                            Ya viene con lo que el sistema calcula — ajústalo solo si al contar el dinero físico no coincide.
+                        </p>
                         <Field label="Notas (opcional)">
                             <TextInput value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej. Faltaron $50" />
                         </Field>
@@ -172,7 +209,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, cashMovements:
 
             <p className="mb-2 mt-4 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Turnos anteriores</p>
             <div className="rounded-xl border border-white/10 bg-zinc-900 px-4 shadow-[var(--shadow-panel)]">
-                {shiftHistory.map((s) => (
+                {shiftHistory.slice(0, visibleHistoryCount).map((s) => (
                     <div key={s.id} className="border-b border-white/10 py-3 text-sm last:border-b-0">
                         <div className="flex items-center justify-between">
                             <span className="font-semibold text-zinc-100">{s.shiftType?.name ?? "Sin turno"}</span>
@@ -206,6 +243,14 @@ export default function CashShiftPanel({ openShift, shiftHistory, cashMovements:
                     </div>
                 ) : null}
             </div>
+            {shiftHistory.length > visibleHistoryCount ? (
+                <button
+                    onClick={() => setVisibleHistoryCount((n) => n + 5)}
+                    className="mt-2.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-zinc-900 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/60"
+                >
+                    Cargar más ({shiftHistory.length - visibleHistoryCount} restantes)
+                </button>
+            ) : null}
 
             {canAddCashMovement ? (
                 <BottomSheet open={movementOpen} onClose={() => setMovementOpen(false)} title="Sacar / meter dinero">

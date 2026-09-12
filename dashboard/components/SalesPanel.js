@@ -488,6 +488,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                         >
                             <div className="min-w-0">
                                 <p className="truncate font-semibold text-zinc-100">
+                                    {s.folio ? <span className="text-zinc-500">#{s.folio} · </span> : null}
                                     {s.name}
                                     {s.quantity > 1 ? ` x${s.quantity}` : ""}
                                     <span className="ml-1.5 rounded-sm bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">
