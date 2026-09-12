@@ -7,7 +7,7 @@ import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import DateRangeBar from "@/components/DateRangeBar";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
-import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, contrastText } from "@/lib/format";
+import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, localInputToISO, contrastText } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, visiblePaymentMethods } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
@@ -192,7 +192,7 @@ function CreateExpenseForm({ products, activeMethods, brandStyle, isPending, err
                             receiptNumber,
                             isRecurring,
                             paidByName,
-                            createdAt: when,
+                            createdAt: localInputToISO(when),
                         })
                     }
                 >
@@ -288,7 +288,7 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                                     receiptNumber,
                                     isRecurring,
                                     paidByName,
-                                    createdAt: when,
+                                    createdAt: localInputToISO(when),
                                 })
                             }
                         >

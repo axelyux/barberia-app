@@ -8,17 +8,17 @@ import SheetButton from "@/components/SheetButton";
 import DateRangeBar from "@/components/DateRangeBar";
 import Badge from "@/components/Badge";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
-import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, contrastText } from "@/lib/format";
+import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, localInputToISO, contrastText } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META, visiblePaymentMethods } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
 import {
     registerProductSale,
     updateProductSale,
-    deleteProductSale,
+    cancelProductSale,
     registerServiceSale,
     updateServiceSale,
-    deleteServiceSale,
+    cancelServiceSale,
     getSalesForRange,
     exportSalesCSV,
 } from "@/app/t/[slug]/sales-actions";
@@ -262,7 +262,7 @@ function CreateSaleForm({ products, services, barbers, customers, canSellProduct
                             paymentMethod,
                             paymentStatus,
                             amountPaidCents: Math.round(parseFloat(amountPaid || "0") * 100),
-                            createdAt: when,
+                            createdAt: localInputToISO(when),
                         })
                     }
                 >
@@ -276,7 +276,7 @@ function CreateSaleForm({ products, services, barbers, customers, canSellProduct
     );
 }
 
-function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
+function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, canEdit, canDelete, onSave, onCancelSale }) {
     const [name, setName] = useState(sale.name);
     const [price, setPrice] = useState(String(sale.priceCents / 100));
     const [quantity, setQuantity] = useState(String(sale.quantity ?? 1));
@@ -285,21 +285,35 @@ function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isP
     const [notes, setNotes] = useState(sale.notes ?? "");
     const [barberId, setBarberId] = useState(sale.barberId ?? "");
     const [customerId, setCustomerId] = useState(sale.customerId ?? "");
-    const [paymentMethod, setPaymentMethod] = useState(sale.paymentMethod ?? "EFECTIVO");
     const [paymentStatus, setPaymentStatus] = useState(sale.paymentStatus ?? "PAGADO");
     const [amountPaid, setAmountPaid] = useState(String((sale.amountPaidCents ?? sale.priceCents) / 100));
     const [when, setWhen] = useState(() => toDatetimeLocalValue(sale.createdAt));
+    const [confirmCancel, setConfirmCancel] = useState(false);
+    const [cancelReason, setCancelReason] = useState("");
+    const isCancelled = !!sale.cancelledAt;
 
     const netTotal = Math.max(
         0,
         Math.round(parseFloat(price || "0") * 100) - Math.round(parseFloat(discount || "0") * 100) + Math.round(parseFloat(tip || "0") * 100)
     );
 
+    const editable = canEdit && !isCancelled;
+
     return (
         <>
+            {isCancelled ? (
+                <div className="mb-3 rounded-lg border border-red-800/40 bg-red-500/10 p-3">
+                    <p className="text-sm font-bold text-red-300">Venta cancelada</p>
+                    <p className="mt-0.5 text-[12px] text-red-200/80">
+                        {shortDateTime(sale.cancelledAt)}
+                        {sale.cancelledByName ? ` · por ${sale.cancelledByName}` : ""}
+                    </p>
+                    {sale.cancelReason ? <p className="mt-1 text-[12px] text-red-200/80">Motivo: {sale.cancelReason}</p> : null}
+                </div>
+            ) : null}
             <div className="flex flex-col gap-3.5">
                 <Field label={sale.kind === "product" ? "Producto" : "Servicio"}>
-                    <TextInput disabled={!canEdit} value={name} onChange={(e) => setName(e.target.value)} />
+                    <TextInput disabled={!editable} value={name} onChange={(e) => setName(e.target.value)} />
                 </Field>
                 <Field label="Subtotal (MXN) · se recalcula del catálogo al guardar">
                     <NumberInput disabled value={price} min="0" />
@@ -314,25 +328,31 @@ function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isP
                     onDiscount={setDiscount}
                     onTip={setTip}
                     onNotes={setNotes}
-                    disabled={!canEdit}
+                    disabled={!editable}
                 />
-                <BarberSelect barbers={barbers} value={barberId} onChange={(e) => setBarberId(e.target.value)} disabled={!canEdit} />
-                <CustomerSelect customers={customers} value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={!canEdit} />
-                <Field label="Método de pago">
-                    <PaymentMethodSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={!canEdit} activeMethods={activeMethods} />
-                </Field>
+                <BarberSelect barbers={barbers} value={barberId} onChange={(e) => setBarberId(e.target.value)} disabled={!editable} />
+                <CustomerSelect customers={customers} value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={!editable} />
+                <div>
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Método de pago</p>
+                    <div className="flex min-h-11 items-center rounded-lg border border-zinc-700/80 bg-zinc-800/30 px-3.5 text-[15px] text-zinc-400">
+                        {PAYMENT_METHOD_LABELS[sale.paymentMethod ?? "EFECTIVO"]}
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                        No se puede cambiar después de cobrar. Si te equivocaste, cancela la venta y regístrala de nuevo.
+                    </p>
+                </div>
                 <PaymentStatusFields
                     status={paymentStatus}
                     amountPaid={amountPaid}
                     netTotalCents={netTotal}
                     onStatus={setPaymentStatus}
                     onAmountPaid={setAmountPaid}
-                    disabled={!canEdit}
+                    disabled={!editable}
                 />
                 <Field label="Fecha y hora">
                     <input
                         type="datetime-local"
-                        disabled={!canEdit}
+                        disabled={!editable}
                         value={when}
                         onChange={(e) => setWhen(e.target.value)}
                         className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
@@ -340,7 +360,7 @@ function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isP
                 </Field>
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
-            {canEdit || canDelete ? (
+            {isCancelled ? null : (
                 <div className="mt-4 flex flex-col gap-2.5">
                     {canEdit ? (
                         <SheetButton
@@ -356,10 +376,9 @@ function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isP
                                     notes,
                                     barberId: barberId || null,
                                     customerId: customerId || null,
-                                    paymentMethod,
                                     paymentStatus,
                                     amountPaidCents: Math.round(parseFloat(amountPaid || "0") * 100),
-                                    createdAt: when,
+                                    createdAt: localInputToISO(when),
                                 })
                             }
                         >
@@ -367,12 +386,34 @@ function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isP
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
-                            Eliminar
-                        </SheetButton>
+                        confirmCancel ? (
+                            <div className="flex flex-col gap-2.5 rounded-lg border border-red-900/40 p-3">
+                                <p className="text-xs text-zinc-400">
+                                    La venta no se borra: queda registrada como cancelada y deja de contar para ingresos y caja.
+                                    {sale.kind === "product" ? " El producto regresa al inventario." : ""}
+                                </p>
+                                <Field label="Motivo (opcional)">
+                                    <TextInput
+                                        value={cancelReason}
+                                        onChange={(e) => setCancelReason(e.target.value)}
+                                        placeholder="Ej. Se registró dos veces por error"
+                                    />
+                                </Field>
+                                <SheetButton variant="danger" loading={isPending} onClick={() => onCancelSale({ reason: cancelReason })}>
+                                    Confirmar cancelación
+                                </SheetButton>
+                                <SheetButton variant="ghost" onClick={() => setConfirmCancel(false)}>
+                                    Volver
+                                </SheetButton>
+                            </div>
+                        ) : (
+                            <SheetButton variant="danger" loading={isPending} onClick={() => setConfirmCancel(true)}>
+                                Cancelar venta
+                            </SheetButton>
+                        )
                     ) : null}
                 </div>
-            ) : null}
+            )}
         </>
     );
 }
@@ -449,9 +490,9 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
         run(() => action(editing.id, slug, data), null, "Cambios guardados");
     };
 
-    const remove = () => {
-        const action = editing.kind === "product" ? deleteProductSale : deleteServiceSale;
-        run(() => action(editing.id, slug), () => setEditingId(null), "Venta eliminada");
+    const cancelSale = ({ reason }) => {
+        const action = editing.kind === "product" ? cancelProductSale : cancelServiceSale;
+        run(() => action(editing.id, slug, { reason }), () => setEditingId(null), "Venta cancelada");
     };
 
     return (
@@ -477,6 +518,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
             <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                 {sales.slice(0, visibleCount).map((s) => {
                     const statusMeta = PAYMENT_STATUS_META[s.paymentStatus ?? "PAGADO"];
+                    const cancelled = !!s.cancelledAt;
                     return (
                         <button
                             key={s.id}
@@ -487,7 +529,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                             className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-zinc-800/30 active:bg-zinc-800/40"
                         >
                             <div className="min-w-0">
-                                <p className="truncate font-semibold text-zinc-100">
+                                <p className={`truncate font-semibold ${cancelled ? "text-zinc-500 line-through" : "text-zinc-100"}`}>
                                     {s.folio ? <span className="text-zinc-500">#{s.folio} · </span> : null}
                                     {s.name}
                                     {s.quantity > 1 ? ` x${s.quantity}` : ""}
@@ -501,14 +543,19 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                                     {s.customer ? ` · ${s.customer.name}` : ""}
                                     {s.tipCents > 0 ? ` · propina ${money(s.tipCents)}` : ""}
                                 </p>
-                                {statusMeta.label !== "Pagado" ? (
+                                {cancelled ? (
+                                    <div className="mt-1.5">
+                                        <Badge tone="bad">Cancelada{s.cancelledByName ? ` · ${s.cancelledByName}` : ""}</Badge>
+                                    </div>
+                                ) : statusMeta.label !== "Pagado" ? (
                                     <div className="mt-1.5">
                                         <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
                                     </div>
                                 ) : null}
                             </div>
-                            <span className="font-numeric shrink-0 font-bold text-emerald-400">
-                                +{money(s.priceCents - (s.discountCents ?? 0) + (s.tipCents ?? 0))}
+                            <span className={`font-numeric shrink-0 font-bold ${cancelled ? "text-zinc-600 line-through" : "text-emerald-400"}`}>
+                                {cancelled ? "" : "+"}
+                                {money(s.priceCents - (s.discountCents ?? 0) + (s.tipCents ?? 0))}
                             </span>
                         </button>
                     );
@@ -556,14 +603,13 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                         sale={editing}
                         barbers={activeBarbers}
                         customers={customers}
-                        activeMethods={activeMethods}
                         brandStyle={brandStyle}
                         isPending={isPending}
                         error={error}
                         canEdit={editing.kind === "product" ? perms.productos.canEdit : perms.servicios.canEdit}
                         canDelete={editing.kind === "product" ? perms.productos.canDelete : perms.servicios.canDelete}
                         onSave={save}
-                        onDelete={remove}
+                        onCancelSale={cancelSale}
                     />
                 ) : null}
             </BottomSheet>

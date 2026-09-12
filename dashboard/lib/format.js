@@ -25,6 +25,18 @@ export const toDatetimeLocalValue = (date) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// Inverso de toDatetimeLocalValue. El <input type="datetime-local"> entrega
+// "2026-09-11T18:14" SIN zona horaria; si eso se manda tal cual al servidor, Node lo
+// interpreta en SU propio huso (UTC en Vercel) y el registro se guarda corrido por la
+// diferencia horaria — y al reeditarlo se vuelve a correr otro tanto, hasta salirse del
+// turno o del día. Convertir aquí, en el navegador, sí produce el instante real porque el
+// navegador conoce su propia zona horaria.
+export const localInputToISO = (value) => {
+    if (!value) return undefined
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
+}
+
 // Para inputs <input type="date">: "YYYY-MM-DD" en hora local.
 export const toDateInputValue = (date) => {
     const d = new Date(date)

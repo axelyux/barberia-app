@@ -87,10 +87,11 @@ export async function closeShift(slug, { closingCashCents, notes }) {
     const endedAt = new Date();
     const range = { gte: shift.startedAt, lte: endedAt };
 
+    // Las ventas canceladas no entran: el dinero nunca se quedó en la caja.
     const [completedBookings, productSales, serviceSales, expenses, cashMovements] = await Promise.all([
         prisma.booking.findMany({ where: { tenantId, status: "COMPLETED", completedAt: range } }),
-        prisma.productSale.findMany({ where: { tenantId, createdAt: range } }),
-        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range } }),
+        prisma.productSale.findMany({ where: { tenantId, createdAt: range, cancelledAt: null } }),
+        prisma.serviceSale.findMany({ where: { tenantId, createdAt: range, cancelledAt: null } }),
         prisma.expense.findMany({ where: { tenantId, createdAt: range } }),
         prisma.cashMovement.findMany({ where: { tenantId, cashShiftId: shift.id } }),
     ]);

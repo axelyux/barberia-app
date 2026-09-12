@@ -304,6 +304,12 @@ model Customer {
 model ServiceSale {
   id            String        @id @default(cuid())
   folio         Int           @default(0)
+  // Las ventas no se borran nunca: se cancelan. Así queda rastro de lo que se registró
+  // por error (o a propósito) en vez de que desaparezca sin dejar huella. Una venta con
+  // cancelledAt != null no cuenta para ingresos, caja, comisiones ni finanzas.
+  cancelledAt     DateTime?
+  cancelledByName String?
+  cancelReason    String?
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   serviceId     String?
@@ -505,6 +511,11 @@ model InventoryMovement {
 model ProductSale {
   id            String        @id @default(cuid())
   folio         Int           @default(0)
+  // Ver ServiceSale: se cancelan, no se borran. Al cancelar una venta de producto el
+  // stock se devuelve al inventario con su propio InventoryMovement.
+  cancelledAt     DateTime?
+  cancelledByName String?
+  cancelReason    String?
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   productId     String?

@@ -168,7 +168,13 @@ export default async function TenantPage({ params }) {
         ...serviceSales30.map((s) => ({ ...s, kind: "service", name: s.serviceName })),
     ]
         .sort((a, b) => b.createdAt - a.createdAt)
-        .map((s) => ({ ...s, createdAt: s.createdAt.toISOString(), barber: plainBarber(s.barber), customer: plainCustomer(s.customer) }));
+        .map((s) => ({
+            ...s,
+            createdAt: s.createdAt.toISOString(),
+            cancelledAt: s.cancelledAt?.toISOString() ?? null,
+            barber: plainBarber(s.barber),
+            customer: plainCustomer(s.customer),
+        }));
 
     const plainExpenses = expenses30.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() }));
     const plainDaily = finance.daily.map((d) => ({ ...d, date: d.date.toISOString() }));
@@ -196,10 +202,11 @@ export default async function TenantPage({ params }) {
     // Mismo cálculo que closeShift() en shift-actions.js — se muestra en pantalla ANTES de
     // cerrar el turno para que el cajero nunca vea el campo "efectivo contado" en $0.
     const sinceShiftStart = (d) => new Date(d) >= openShift.startedAt;
+    const activeInShift = (s) => !s.cancelledAt && sinceShiftStart(s.createdAt);
     const shiftRevenueRows = [
         ...completedBookingsThisShift,
-        ...productSales30.filter((s) => sinceShiftStart(s.createdAt)),
-        ...serviceSales30.filter((s) => sinceShiftStart(s.createdAt)),
+        ...productSales30.filter(activeInShift),
+        ...serviceSales30.filter(activeInShift),
     ];
     const shiftCashRevenueCents = shiftRevenueRows
         .filter((r) => r.paymentMethod === "EFECTIVO")

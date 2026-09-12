@@ -107,7 +107,7 @@ export default function TenantBoard({
     const completedToday = bookings.filter((b) => b.status === "COMPLETED");
     const servicesRevenue = completedToday.reduce((sum, b) => sum + (b.amountPaidCents ?? 0), 0);
     const todayKey = new Date().toDateString();
-    const salesToday = sales.filter((s) => new Date(s.createdAt).toDateString() === todayKey);
+    const salesToday = sales.filter((s) => !s.cancelledAt && new Date(s.createdAt).toDateString() === todayKey);
     const salesRevenue = salesToday.reduce((sum, s) => sum + (s.amountPaidCents ?? 0), 0);
     const pendingToday =
         completedToday

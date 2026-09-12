@@ -19,7 +19,9 @@ export const EXPENSE_CATEGORY_META = {
 
 // Arma la serie diaria (7 días) de ingresos vs gastos, y el desglose de gastos por categoría (30 días).
 export function buildFinanceData({ completedBookings, productSales, serviceSales = [], expenses30, barbers = [] }) {
-    const sales = [...productSales, ...serviceSales];
+    // Una venta cancelada no es ingreso, no genera comisión y no entra a ninguna gráfica:
+    // se conserva solo como registro de que existió (ver cancelProductSale/cancelServiceSale).
+    const sales = [...productSales, ...serviceSales].filter((s) => !s.cancelledAt);
     const today0 = startOfDay(new Date());
     const days = [];
     for (let i = 6; i >= 0; i--) {

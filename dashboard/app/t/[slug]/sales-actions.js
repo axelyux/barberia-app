@@ -78,12 +78,13 @@ export async function registerProductSale(
 export async function updateProductSale(
     saleId,
     slug,
-    { name, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
+    { name, barberId, customerId, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
     const { user, tenantId } = await requireTenantSession(slug, "PRODUCTOS", "edit");
     if (!name?.trim()) throw new Error("El nombre del producto es obligatorio");
 
     const existing = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
+    if (existing.cancelledAt) throw new Error("Esta venta está cancelada y ya no se puede editar.");
     // El precio SIEMPRE se recalcula desde el catálogo (nunca desde lo que mande el
     // cliente) — toda venta de producto está ligada a un product real desde que se creó
     // (registerProductSale lo exige), así que aquí también debe estarlo.
@@ -105,7 +106,11 @@ export async function updateProductSale(
         notes: notes?.trim() || null,
         barberId: await ownedOrNull("barber", barberId, tenantId),
         customerId: await ownedOrNull("customer", customerId, tenantId),
-        paymentMethod: paymentMethod || "EFECTIVO",
+        // El método de pago NO se toca al editar: se queda con el que se registró al
+        // cobrar. Si se pudiera cambiar después, sería trivial cobrar en efectivo,
+        // quedarse el dinero, y luego marcar la venta como "tarjeta" para que la caja
+        // cuadre igual. Para corregir un error real, se cancela la venta y se registra
+        // de nuevo (queda el rastro de ambas).
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
     };
@@ -129,19 +134,27 @@ export async function updateProductSale(
     revalidatePath(`/t/${slug}`);
 }
 
-export async function deleteProductSale(saleId, slug) {
+// Cancelar (no borrar): la venta se queda en la lista marcada como cancelada, con quién
+// la canceló y por qué. Deja de contar para ingresos, caja, comisiones y finanzas, pero
+// el registro no desaparece — si alguien cobra y luego "borra" la venta para quedarse el
+// dinero, aquí queda la evidencia.
+export async function cancelProductSale(saleId, slug, { reason } = {}) {
     const { user, tenantId } = await requireTenantSession(slug, "PRODUCTOS", "delete");
     const sale = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
+    if (sale.cancelledAt) throw new Error("Esta venta ya estaba cancelada.");
 
     await prisma.$transaction(async (tx) => {
-        await tx.productSale.deleteMany({ where: { id: saleId, tenantId } });
+        await tx.productSale.updateMany({
+            where: { id: saleId, tenantId },
+            data: { cancelledAt: new Date(), cancelledByName: user.name, cancelReason: reason?.trim() || null },
+        });
         if (sale.productId) {
             await applyStockMovement(tx, {
                 tenantId,
                 productId: sale.productId,
                 type: "ENTRADA",
                 quantity: sale.quantity,
-                reason: "Venta eliminada",
+                reason: "Venta cancelada",
                 createdByName: user.name,
             });
         }
@@ -189,11 +202,12 @@ export async function registerServiceSale(
 export async function updateServiceSale(
     saleId,
     slug,
-    { name, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
+    { name, barberId, customerId, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
     const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "edit");
     if (!name?.trim()) throw new Error("El nombre del servicio es obligatorio");
     const existing = await findOwnedOrThrow("serviceSale", saleId, tenantId, "Venta no encontrada");
+    if (existing.cancelledAt) throw new Error("Esta venta está cancelada y ya no se puede editar.");
     // Mismo criterio que en productos: el precio se recalcula desde el catálogo, nunca
     // desde lo que mande el cliente.
     const service = await findOwnedOrThrow("service", existing.serviceId, tenantId, "Servicio no encontrado");
@@ -214,7 +228,7 @@ export async function updateServiceSale(
         notes: notes?.trim() || null,
         barberId: await ownedOrNull("barber", barberId, tenantId),
         customerId: await ownedOrNull("customer", customerId, tenantId),
-        paymentMethod: paymentMethod || "EFECTIVO",
+        // Ver updateProductSale: el método de pago queda fijo desde que se cobró.
         paymentStatus: status,
         amountPaidCents: amountPaidFor(netTotal, status, amountPaidCents),
     };
@@ -224,9 +238,15 @@ export async function updateServiceSale(
     revalidatePath(`/t/${slug}`);
 }
 
-export async function deleteServiceSale(saleId, slug) {
-    const { tenantId } = await requireTenantSession(slug, "SERVICIOS", "delete");
-    await prisma.serviceSale.deleteMany({ where: { id: saleId, tenantId } });
+export async function cancelServiceSale(saleId, slug, { reason } = {}) {
+    const { user, tenantId } = await requireTenantSession(slug, "SERVICIOS", "delete");
+    const sale = await findOwnedOrThrow("serviceSale", saleId, tenantId, "Venta no encontrada");
+    if (sale.cancelledAt) throw new Error("Esta venta ya estaba cancelada.");
+
+    await prisma.serviceSale.updateMany({
+        where: { id: saleId, tenantId },
+        data: { cancelledAt: new Date(), cancelledByName: user.name, cancelReason: reason?.trim() || null },
+    });
     revalidatePath(`/t/${slug}`);
 }
 
@@ -245,6 +265,7 @@ export async function getSalesForRange(slug, { from, to }) {
         kind: "product",
         name: s.productName,
         createdAt: s.createdAt.toISOString(),
+        cancelledAt: s.cancelledAt?.toISOString() ?? null,
         barber: plainBarber(s.barber),
         customer: plainCustomer(s.customer),
     }));
@@ -252,6 +273,7 @@ export async function getSalesForRange(slug, { from, to }) {
         ...s,
         kind: "service",
         name: s.serviceName,
+        cancelledAt: s.cancelledAt?.toISOString() ?? null,
         createdAt: s.createdAt.toISOString(),
         barber: plainBarber(s.barber),
         customer: plainCustomer(s.customer),
@@ -276,6 +298,9 @@ export async function exportSalesCSV(slug, { from, to }) {
 
     return toCSV(rows, [
         { label: "Folio", value: (s) => s.folio || "" },
+        { label: "Estado", value: (s) => (s.cancelledAt ? "CANCELADA" : "Activa") },
+        { label: "Cancelada por", value: (s) => s.cancelledByName ?? "" },
+        { label: "Motivo de cancelación", value: (s) => s.cancelReason ?? "" },
         { label: "Fecha", value: (s) => s.createdAt.toLocaleString("es-MX") },
         { label: "Tipo", value: (s) => s.kind },
         { label: "Nombre", value: (s) => s.name },
