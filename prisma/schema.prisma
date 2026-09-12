@@ -71,6 +71,20 @@ enum PaymentMethod {
   OTRO
 }
 
+// Qué métodos de pago acepta CADA barbería — sin fila para un método, se asume activo
+// (así ningún tenant existente se queda sin nada al agregar esto). EFECTIVO nunca se
+// puede desactivar (se valida en el servidor, no solo en la interfaz): siempre debe
+// quedar al menos una forma de cobrar disponible.
+model TenantPaymentMethod {
+  id       String        @id @default(cuid())
+  tenantId String
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  method   PaymentMethod
+  active   Boolean       @default(true)
+
+  @@unique([tenantId, method])
+}
+
 enum PaymentStatus {
   PAGADO
   PARCIAL
@@ -149,6 +163,7 @@ model Tenant {
   whatsappMessages   WhatsappMessage[]
   inventoryMovements InventoryMovement[]
   cashMovements      CashMovement[]
+  paymentMethods     TenantPaymentMethod[]
 }
 
 // Progreso de una conversación de WhatsApp en curso, para no perderlo si el proceso del

@@ -7,7 +7,7 @@ import SheetButton from "@/components/SheetButton";
 import DateRangeBar from "@/components/DateRangeBar";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, contrastText } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
+import { PAYMENT_METHOD_LABELS, visiblePaymentMethods } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
@@ -15,7 +15,7 @@ import { createExpense, updateExpense, deleteExpense, getExpensesForRange, expor
 
 const emptyForm = { category: "INSUMOS", description: "", amount: "", productId: "", quantity: "1", paymentMethod: "EFECTIVO" };
 
-function PaymentMethodSelect({ value, onChange, disabled }) {
+function PaymentMethodSelect({ value, onChange, disabled, activeMethods }) {
     return (
         <select
             value={value}
@@ -23,7 +23,7 @@ function PaymentMethodSelect({ value, onChange, disabled }) {
             disabled={disabled}
             className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
         >
-            {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
+            {visiblePaymentMethods(activeMethods, value).map(([key, label]) => (
                 <option key={key} value={key}>
                     {label}
                 </option>
@@ -113,7 +113,7 @@ function ProductPurchaseFields({ products, productId, quantity, onProductId, onQ
     );
 }
 
-function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onCancel }) {
+function CreateExpenseForm({ products, activeMethods, brandStyle, isPending, error, onSave, onCancel }) {
     const [form, setForm] = useState(emptyForm);
     const [vendor, setVendor] = useState("");
     const [receiptNumber, setReceiptNumber] = useState("");
@@ -148,7 +148,11 @@ function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onC
                     <NumberInput value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} min="0" />
                 </Field>
                 <Field label="Método de pago">
-                    <PaymentMethodSelect value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))} />
+                    <PaymentMethodSelect
+                        value={form.paymentMethod}
+                        onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))}
+                        activeMethods={activeMethods}
+                    />
                 </Field>
                 <VendorFields
                     vendor={vendor}
@@ -201,7 +205,7 @@ function CreateExpenseForm({ products, brandStyle, isPending, error, onSave, onC
     );
 }
 
-function EditExpenseForm({ expense, products, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
+function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
     const [category, setCategory] = useState(expense.category);
     const [description, setDescription] = useState(expense.description);
     const [amount, setAmount] = useState(String(expense.amountCents / 100));
@@ -235,7 +239,12 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
                     <NumberInput disabled={!canEdit} value={amount} onChange={(e) => setAmount(e.target.value)} min="0" />
                 </Field>
                 <Field label="Método de pago">
-                    <PaymentMethodSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={!canEdit} />
+                    <PaymentMethodSelect
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        disabled={!canEdit}
+                        activeMethods={activeMethods}
+                    />
                 </Field>
                 <VendorFields
                     vendor={vendor}
@@ -296,7 +305,7 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
     );
 }
 
-export default function ExpenseList({ expenses: initialExpenses, products = [], slug, brandColor, perms }) {
+export default function ExpenseList({ expenses: initialExpenses, products = [], activeMethods = [], slug, brandColor, perms }) {
     const [expenses, setExpenses] = useState(initialExpenses);
     const [visibleCount, setVisibleCount] = useState(20);
     const [fromDate, setFromDate] = useState(startOf30DaysAgo);
@@ -404,6 +413,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                     {createOpen ? (
                         <CreateExpenseForm
                             products={products}
+                            activeMethods={activeMethods}
                             brandStyle={brandStyle}
                             isPending={isPending}
                             error={error}
@@ -420,6 +430,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                         key={editing.id}
                         expense={editing}
                         products={products}
+                        activeMethods={activeMethods}
                         brandStyle={brandStyle}
                         isPending={isPending}
                         error={error}

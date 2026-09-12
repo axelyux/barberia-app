@@ -8,7 +8,7 @@ import SheetButton from "@/components/SheetButton";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { useToast } from "@/components/Toast";
 import { money, contrastText, BOOKING_STATUS_META } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META } from "@/lib/payments";
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META, visiblePaymentMethods } from "@/lib/payments";
 import {
     createBooking,
     updateBooking,
@@ -111,7 +111,7 @@ function CreateBookingForm({ services, barbers, brandStyle, isPending, error, on
     );
 }
 
-export default function BookingsPanel({ initialBookings, services, barbers, slug, brandColor, perms, openCreateSignal }) {
+export default function BookingsPanel({ initialBookings, services, barbers, activeMethods = [], slug, brandColor, perms, openCreateSignal }) {
     const [dateISO, setDateISO] = useState(toISODate(new Date()));
     const [bookings, setBookings] = useState(initialBookings);
     const [createOpen, setCreateOpen] = useState(false);
@@ -323,7 +323,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                                     onChange={(e) => setPaymentMethod(e.target.value)}
                                                     className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
                                                 >
-                                                    {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
+                                                    {visiblePaymentMethods(activeMethods, paymentMethod).map(([key, label]) => (
                                                         <option key={key} value={key}>
                                                             {label}
                                                         </option>

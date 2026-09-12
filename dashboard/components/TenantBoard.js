@@ -10,6 +10,7 @@ import ProductsInventory from "@/components/ProductsInventory";
 import SalesPanel from "@/components/SalesPanel";
 import ExpenseList from "@/components/ExpenseList";
 import BrandingEditor from "@/components/BrandingEditor";
+import PaymentMethodsEditor from "@/components/PaymentMethodsEditor";
 import FlowEditor from "@/components/FlowEditor";
 import FinancePanel from "@/components/FinancePanel";
 import UsersEditor from "@/components/UsersEditor";
@@ -61,6 +62,8 @@ export default function TenantBoard({
     customers,
     shiftTypes,
     shiftHistory,
+    activePaymentMethods,
+    paymentMethodStatus,
     openShift,
     cashMovements,
     finance,
@@ -206,6 +209,7 @@ export default function TenantBoard({
                             initialBookings={bookings}
                             services={services}
                             barbers={barbers}
+                            activeMethods={activePaymentMethods}
                             slug={tenant.slug}
                             brandColor={brandColor}
                             perms={perms.CITAS}
@@ -316,6 +320,7 @@ export default function TenantBoard({
                             <ExpenseList
                                 expenses={expenses}
                                 products={products}
+                                activeMethods={activePaymentMethods}
                                 slug={tenant.slug}
                                 brandColor={brandColor}
                                 perms={perms.FINANZAS}
@@ -327,6 +332,7 @@ export default function TenantBoard({
                                 sales={sales}
                                 barbers={barbers}
                                 customers={customers}
+                                activeMethods={activePaymentMethods}
                                 slug={tenant.slug}
                                 brandColor={brandColor}
                                 perms={salesPerms}
@@ -366,6 +372,7 @@ export default function TenantBoard({
                         <ShiftTypesEditor shiftTypes={shiftTypes} slug={tenant.slug} brandColor={brandColor} perms={perms.SEGURIDAD} />
                         <BusinessHoursEditor tenant={tenant} hours={businessHours} perms={perms.SEGURIDAD} />
                         <BrandingEditor tenant={tenant} perms={perms.SEGURIDAD} />
+                        <PaymentMethodsEditor initialStatus={paymentMethodStatus} slug={tenant.slug} perms={perms.SEGURIDAD} />
                         <UsersEditor users={staffUsers} slug={tenant.slug} brandColor={brandColor} perms={perms.SEGURIDAD} />
                     </>
                 ) : null}

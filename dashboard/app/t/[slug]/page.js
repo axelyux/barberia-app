@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 import TenantBoard from "@/components/TenantBoard";
 import OpenShiftGate from "@/components/OpenShiftGate";
 import { buildFinanceData } from "@/lib/finance";
+import { ALL_PAYMENT_METHODS } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function TenantPage({ params }) {
         shiftHistory,
         inventoryMovements30,
         cashMovements,
+        paymentMethodOverrides,
     ] = await Promise.all([
         prisma.booking.findMany({
             where: { tenantId: tenant.id, scheduledAt: { gte: startOfToday, lt: startOfTomorrow } },
@@ -119,6 +121,7 @@ export default async function TenantPage({ params }) {
             take: 30,
         }),
         prisma.cashMovement.findMany({ where: { tenantId: tenant.id, cashShiftId: openShift.id }, orderBy: { createdAt: "desc" } }),
+        prisma.tenantPaymentMethod.findMany({ where: { tenantId: tenant.id } }),
     ]);
 
     const messagesByKey = Object.fromEntries(flowMessages.map((m) => [m.key, m.text]));
@@ -175,6 +178,11 @@ export default async function TenantPage({ params }) {
     const plainOpenShift = plainShift(openShift);
     const plainInventoryMovements = inventoryMovements30.map((m) => ({ ...m, createdAt: m.createdAt.toISOString(), productName: m.product.name }));
     const plainCashMovements = cashMovements.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }));
+    // Sin fila para un método = activo por default (así ninguna barbería existente pierde
+    // opciones al agregar esta tabla) — solo las que tienen una fila explícita se filtran.
+    const overrideByMethod = Object.fromEntries(paymentMethodOverrides.map((p) => [p.method, p.active]));
+    const activePaymentMethods = ALL_PAYMENT_METHODS.filter((m) => overrideByMethod[m] ?? true);
+    const paymentMethodStatus = ALL_PAYMENT_METHODS.map((m) => ({ method: m, active: overrideByMethod[m] ?? true }));
 
     const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
 
@@ -201,6 +209,8 @@ export default async function TenantPage({ params }) {
                 shiftHistory={plainShiftHistory}
                 openShift={plainOpenShift}
                 cashMovements={plainCashMovements}
+                activePaymentMethods={activePaymentMethods}
+                paymentMethodStatus={paymentMethodStatus}
                 finance={{ ...finance, daily: plainDaily }}
                 todayLabel={todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}
             />

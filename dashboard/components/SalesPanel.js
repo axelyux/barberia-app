@@ -8,7 +8,7 @@ import DateRangeBar from "@/components/DateRangeBar";
 import Badge from "@/components/Badge";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, contrastText } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META } from "@/lib/payments";
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META, visiblePaymentMethods } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
 import {
@@ -24,7 +24,7 @@ import {
 
 const startOf30DaysAgo = () => toDateInputValue(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
 
-function PaymentMethodSelect({ value, onChange, disabled }) {
+function PaymentMethodSelect({ value, onChange, disabled, activeMethods }) {
     return (
         <select
             value={value}
@@ -32,7 +32,7 @@ function PaymentMethodSelect({ value, onChange, disabled }) {
             disabled={disabled}
             className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
         >
-            {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => (
+            {visiblePaymentMethods(activeMethods, value).map(([key, label]) => (
                 <option key={key} value={key}>
                     {label}
                 </option>
@@ -138,7 +138,7 @@ function CustomerSelect({ customers, value, onChange, disabled }) {
     );
 }
 
-function CreateSaleForm({ products, services, barbers, customers, canSellProducts, canSellServices, brandStyle, isPending, error, onSave, onCancel }) {
+function CreateSaleForm({ products, services, barbers, customers, canSellProducts, canSellServices, activeMethods, brandStyle, isPending, error, onSave, onCancel }) {
     const [kind, setKind] = useState(canSellProducts ? "product" : "service");
     const [productId, setProductId] = useState(products[0]?.id ?? "");
     const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
@@ -223,7 +223,7 @@ function CreateSaleForm({ products, services, barbers, customers, canSellProduct
                 <BarberSelect barbers={barbers} value={barberId} onChange={(e) => setBarberId(e.target.value)} />
                 <CustomerSelect customers={customers} value={customerId} onChange={(e) => setCustomerId(e.target.value)} />
                 <Field label="Método de pago">
-                    <PaymentMethodSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} />
+                    <PaymentMethodSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} activeMethods={activeMethods} />
                 </Field>
                 <PaymentStatusFields
                     status={paymentStatus}
@@ -275,7 +275,7 @@ function CreateSaleForm({ products, services, barbers, customers, canSellProduct
     );
 }
 
-function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
+function EditSaleForm({ sale, barbers, customers, activeMethods, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
     const [name, setName] = useState(sale.name);
     const [price, setPrice] = useState(String(sale.priceCents / 100));
     const [quantity, setQuantity] = useState(String(sale.quantity ?? 1));
@@ -318,7 +318,7 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
                 <BarberSelect barbers={barbers} value={barberId} onChange={(e) => setBarberId(e.target.value)} disabled={!canEdit} />
                 <CustomerSelect customers={customers} value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={!canEdit} />
                 <Field label="Método de pago">
-                    <PaymentMethodSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={!canEdit} />
+                    <PaymentMethodSelect value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={!canEdit} activeMethods={activeMethods} />
                 </Field>
                 <PaymentStatusFields
                     status={paymentStatus}
@@ -376,7 +376,7 @@ function EditSaleForm({ sale, barbers, customers, brandStyle, isPending, error, 
     );
 }
 
-export default function SalesPanel({ products, services, sales: initialSales, barbers = [], customers = [], slug, brandColor, perms, openCreateSignal }) {
+export default function SalesPanel({ products, services, sales: initialSales, barbers = [], customers = [], activeMethods = [], slug, brandColor, perms, openCreateSignal }) {
     const [sales, setSales] = useState(initialSales);
     // La lista se pide completa (del rango de fechas), pero se renderiza de a poco — con un
     // negocio movido, 30 días pueden ser cientos de filas de un jalón, lo cual se siente
@@ -535,6 +535,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                             customers={customers}
                             canSellProducts={perms.productos.canAdd && activeProducts.length > 0}
                             canSellServices={perms.servicios.canAdd && activeServices.length > 0}
+                            activeMethods={activeMethods}
                             brandStyle={brandStyle}
                             isPending={isPending}
                             error={error}
@@ -552,6 +553,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                         sale={editing}
                         barbers={activeBarbers}
                         customers={customers}
+                        activeMethods={activeMethods}
                         brandStyle={brandStyle}
                         isPending={isPending}
                         error={error}
