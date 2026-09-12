@@ -13,6 +13,7 @@ import BrandingEditor from "@/components/BrandingEditor";
 import PaymentMethodsEditor from "@/components/PaymentMethodsEditor";
 import FlowEditor from "@/components/FlowEditor";
 import FinancePanel from "@/components/FinancePanel";
+import ReportsPanel from "@/components/ReportsPanel";
 import UsersEditor from "@/components/UsersEditor";
 import BusinessHoursEditor from "@/components/BusinessHoursEditor";
 import LiveClock from "@/components/LiveClock";
@@ -75,6 +76,7 @@ export default function TenantBoard({
     const [tab, setTab] = useState(allowedTabs[0]?.key ?? "hoy");
     const activeTab = allowedTabs.some((t) => t.key === tab) ? tab : allowedTabs[0]?.key;
     const [cajaSubTab, setCajaSubTab] = useState("ventas");
+    const [finanzasSubTab, setFinanzasSubTab] = useState("resumen");
 
     // La navegación inferior solo tiene espacio cómodo para ~5 pestañas en un celular
     // angosto — con más, en vez de amontonarlas se agrupan las que sobran detrás de un
@@ -346,7 +348,35 @@ export default function TenantBoard({
                     </>
                 ) : null}
 
-                {activeTab === "finanzas" ? <FinancePanel finance={finance} /> : null}
+                {activeTab === "finanzas" ? (
+                    <>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => setFinanzasSubTab("resumen")}
+                                className="flex h-9 items-center justify-center rounded-md border text-sm font-semibold"
+                                style={
+                                    finanzasSubTab === "resumen"
+                                        ? { borderColor: brandColor, color: brandColor }
+                                        : { borderColor: "#3f3f46", color: "#a1a1aa" }
+                                }
+                            >
+                                Resumen
+                            </button>
+                            <button
+                                onClick={() => setFinanzasSubTab("reportes")}
+                                className="flex h-9 items-center justify-center rounded-md border text-sm font-semibold"
+                                style={
+                                    finanzasSubTab === "reportes"
+                                        ? { borderColor: brandColor, color: brandColor }
+                                        : { borderColor: "#3f3f46", color: "#a1a1aa" }
+                                }
+                            >
+                                Reportes
+                            </button>
+                        </div>
+                        {finanzasSubTab === "reportes" ? <ReportsPanel slug={tenant.slug} /> : <FinancePanel finance={finance} />}
+                    </>
+                ) : null}
 
                 {activeTab === "equipo" ? (
                     <>

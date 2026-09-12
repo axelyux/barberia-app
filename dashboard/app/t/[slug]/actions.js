@@ -6,12 +6,16 @@ import { revalidatePath } from "next/cache";
 import { requireTenantSession } from "@/lib/auth";
 import { validateBookingAvailability, formatTime12h } from "@/lib/scheduling";
 import { findOwnedOrThrow, updateOwned, deleteOwned } from "@/lib/tenant-guard";
+import { problem } from "@/lib/action-result";
 
-function conflictError({ error, alternatives }) {
+// Devuelve el texto a mostrar, no un Error: estos son problemas que el usuario puede
+// corregir (elegir otra hora), y los mensajes de los errores lanzados no sobreviven a
+// producción — ver lib/action-result.js.
+function conflictMessage({ error, alternatives }) {
     const suggestionText = alternatives?.length
         ? ` ¿Te sirve a las ${alternatives.map(formatTime12h).join(" o a las ")}?`
         : " No hay otro horario libre cerca ese día.";
-    return new Error(`${error}${suggestionText}`);
+    return `${error}${suggestionText}`;
 }
 
 // Reintenta una vez si Postgres detecta un conflicto de serialización entre dos
@@ -72,7 +76,7 @@ export async function cancelBooking(bookingId, slug) {
 
 export async function createBooking(slug, { customerName, customerPhone, serviceId, barberId, dateISO, hour, minute }) {
     const { tenantId } = await requireTenantSession(slug, "CITAS", "add");
-    if (!customerName?.trim()) throw new Error("El nombre del cliente es obligatorio");
+    if (!customerName?.trim()) return problem("El nombre del cliente es obligatorio.");
 
     const dayStart = new Date(dateISO);
     dayStart.setHours(0, 0, 0, 0);
@@ -83,7 +87,7 @@ export async function createBooking(slug, { customerName, customerPhone, service
     const barber = barberId ? await findOwnedOrThrow("barber", barberId, tenantId, "Barbero no encontrado") : null;
     const durationMin = service?.durationMin ?? 30;
 
-    await withSerializableRetry(() =>
+    const conflict = await withSerializableRetry(() =>
         prisma.$transaction(
             async (tx) => {
                 const result = await validateBookingAvailability({
@@ -93,7 +97,9 @@ export async function createBooking(slug, { customerName, customerPhone, service
                     durationMin,
                     barberId: barber?.id ?? null,
                 });
-                if (!result.ok) throw conflictError(result);
+                // Salir de la transacción devolviendo el motivo (en vez de lanzarlo) deja
+                // la validación intacta: no se creó nada, y el texto sí llega a pantalla.
+                if (!result.ok) return conflictMessage(result);
 
                 await tx.booking.create({
                     data: {
@@ -110,16 +116,18 @@ export async function createBooking(slug, { customerName, customerPhone, service
                         priceChargedCents: service?.priceCents,
                     },
                 });
+                return null;
             },
             { isolation: Prisma.TransactionIsolationLevel.Serializable }
         )
     );
+    if (conflict) return problem(conflict);
     revalidatePath(`/t/${slug}`);
 }
 
 export async function updateBooking(bookingId, slug, { customerName, customerPhone, serviceId, barberId }) {
     const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
-    if (!customerName?.trim()) throw new Error("El nombre del cliente es obligatorio");
+    if (!customerName?.trim()) return problem("El nombre del cliente es obligatorio.");
 
     const existing = await findOwnedOrThrow("booking", bookingId, tenantId, "Cita no encontrada");
     const service = serviceId ? await findOwnedOrThrow("service", serviceId, tenantId, "Servicio no encontrado") : null;
@@ -130,7 +138,7 @@ export async function updateBooking(bookingId, slug, { customerName, customerPho
     // la misma validación que al crear — cambiar de servicio o de barbero puede cambiar
     // la duración o dejar la cita chocando con otra que antes no chocaba.
     if (existing.scheduledAt) {
-        await withSerializableRetry(() =>
+        const conflict = await withSerializableRetry(() =>
             prisma.$transaction(
                 async (tx) => {
                     const result = await validateBookingAvailability({
@@ -141,7 +149,7 @@ export async function updateBooking(bookingId, slug, { customerName, customerPho
                         barberId: barber?.id ?? null,
                         excludeBookingId: bookingId,
                     });
-                    if (!result.ok) throw conflictError(result);
+                    if (!result.ok) return conflictMessage(result);
 
                     await tx.booking.update({
                         where: { id: bookingId },
@@ -154,10 +162,12 @@ export async function updateBooking(bookingId, slug, { customerName, customerPho
                             priceChargedCents: service?.priceCents ?? existing.priceChargedCents,
                         },
                     });
+                    return null;
                 },
                 { isolation: Prisma.TransactionIsolationLevel.Serializable }
             )
         );
+        if (conflict) return problem(conflict);
     } else {
         await updateOwned("booking", bookingId, tenantId, {
             customerName: customerName.trim(),

@@ -7,6 +7,7 @@ import { toCSV } from "@/lib/csv";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
 import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
 import { shiftLabel } from "@/lib/format";
+import { problem } from "@/lib/action-result";
 
 const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
 const plainCustomer = (c) => (c ? { ...c, createdAt: c.createdAt.toISOString() } : null);
@@ -51,7 +52,9 @@ export async function registerProductSale(
     const product = await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
     const qty = Math.max(1, Math.round(quantity) || 1);
-    if (product.stock < qty) throw new Error("No hay stock suficiente de este producto.");
+    if (product.stock < qty) {
+        return problem(`No hay stock suficiente de ${product.name}: quedan ${product.stock} y estás vendiendo ${qty}.`);
+    }
 
     const status = paymentStatus || "PAGADO";
     const discount = Math.max(0, Math.round(discountCents) || 0);

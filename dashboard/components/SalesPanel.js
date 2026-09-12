@@ -1,6 +1,7 @@
 "use client";
 import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
+import { problemMessage } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -461,7 +462,13 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
         setError("");
         startTransition(async () => {
             try {
-                await fn();
+                // Ver lib/action-result.js: lo que el usuario puede corregir (sin stock)
+                // vuelve como valor, no como excepción.
+                const problema = problemMessage(await fn());
+                if (problema) {
+                    setError(problema);
+                    return;
+                }
                 setSales(await getSalesForRange(slug, range()));
                 setVisibleCount(20);
                 onDone?.();

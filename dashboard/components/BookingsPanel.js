@@ -1,6 +1,7 @@
 "use client";
 import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
+import { problemMessage } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import Badge from "@/components/Badge";
@@ -167,7 +168,13 @@ export default function BookingsPanel({ initialBookings, services, barbers, acti
         setError("");
         startTransition(async () => {
             try {
-                await fn();
+                // Un problema que el usuario puede corregir (hora ocupada, fuera de horario)
+                // llega como valor de retorno, no como excepción — ver lib/action-result.js.
+                const problema = problemMessage(await fn());
+                if (problema) {
+                    setError(problema);
+                    return;
+                }
                 const rows = await getBookingsForDate(slug, dateISO);
                 setBookings(rows);
                 onDone?.();
