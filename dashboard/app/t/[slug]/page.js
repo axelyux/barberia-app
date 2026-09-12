@@ -129,7 +129,7 @@ export default async function TenantPage({ params }) {
         // no cuadraría con lo que el sistema calcula de verdad al cerrar el turno.
         prisma.booking.findMany({
             where: { tenantId: tenant.id, status: "COMPLETED", completedAt: { gte: openShift.startedAt } },
-            select: { amountPaidCents: true, paymentMethod: true },
+            select: { id: true, amountPaidCents: true, paymentMethod: true, customerName: true, completedAt: true },
         }),
     ]);
 
@@ -176,7 +176,11 @@ export default async function TenantPage({ params }) {
             customer: plainCustomer(s.customer),
         }));
 
-    const plainExpenses = expenses30.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() }));
+    const plainExpenses = expenses30.map((e) => ({
+        ...e,
+        createdAt: e.createdAt.toISOString(),
+        cancelledAt: e.cancelledAt?.toISOString() ?? null,
+    }));
     const plainDaily = finance.daily.map((d) => ({ ...d, date: d.date.toISOString() }));
     const plainStaffUsers = staffUsers.map((u) => ({ id: u.id, name: u.name, username: u.username, role: u.role, active: u.active, permissions: u.permissions }));
     const plainCurrentUser = { id: sessionUser.id, name: sessionUser.name, role: sessionUser.role };
@@ -211,13 +215,60 @@ export default async function TenantPage({ params }) {
     const shiftCashRevenueCents = shiftRevenueRows
         .filter((r) => r.paymentMethod === "EFECTIVO")
         .reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
-    const shiftCashExpenseCents = expenses30
-        .filter((e) => sinceShiftStart(e.createdAt) && e.paymentMethod === "EFECTIVO" && e.fromCashRegister)
-        .reduce((sum, e) => sum + e.amountCents, 0);
+    // Gastos que de verdad sacaron billetes del cajón en este turno: en efectivo, marcados
+    // como salidos de caja, y no cancelados. Se muestran también en el desglose del turno.
+    const shiftCashExpenses = expenses30.filter(
+        (e) => !e.cancelledAt && sinceShiftStart(e.createdAt) && e.paymentMethod === "EFECTIVO" && e.fromCashRegister
+    );
+    const shiftCashExpenseCents = shiftCashExpenses.reduce((sum, e) => sum + e.amountCents, 0);
     const shiftCashDepositCents = cashMovements.filter((m) => m.type === "DEPOSITO").reduce((sum, m) => sum + m.amountCents, 0);
     const shiftCashWithdrawalCents = cashMovements.filter((m) => m.type === "RETIRO").reduce((sum, m) => sum + m.amountCents, 0);
     const expectedCashCents =
         openShift.openingCashCents + shiftCashRevenueCents - shiftCashExpenseCents + shiftCashDepositCents - shiftCashWithdrawalCents;
+
+    // Desglose de TODO lo que movió billetes en el cajón durante este turno, en una sola
+    // lista ordenada. Sin esto, el "efectivo esperado" era un número que había que creer a
+    // ciegas: ahora fondo inicial + estas líneas da exactamente ese total, y se ve de dónde
+    // salió cada peso. Las ventas/gastos con tarjeta o transferencia no aparecen porque no
+    // tocan el cajón.
+    const cashLedger = [
+        ...completedBookingsThisShift
+            .filter((b) => b.paymentMethod === "EFECTIVO")
+            .map((b) => ({
+                id: `booking-${b.id}`,
+                label: b.customerName ? `Cita · ${b.customerName}` : "Cita completada",
+                amountCents: b.amountPaidCents ?? 0,
+                createdAt: (b.completedAt ?? openShift.startedAt).toISOString(),
+            })),
+        ...productSales30
+            .filter((s) => activeInShift(s) && s.paymentMethod === "EFECTIVO")
+            .map((s) => ({
+                id: `psale-${s.id}`,
+                label: `Venta · ${s.productName}`,
+                amountCents: s.amountPaidCents ?? 0,
+                createdAt: s.createdAt.toISOString(),
+            })),
+        ...serviceSales30
+            .filter((s) => activeInShift(s) && s.paymentMethod === "EFECTIVO")
+            .map((s) => ({
+                id: `ssale-${s.id}`,
+                label: `Venta · ${s.serviceName}`,
+                amountCents: s.amountPaidCents ?? 0,
+                createdAt: s.createdAt.toISOString(),
+            })),
+        ...shiftCashExpenses.map((e) => ({
+            id: `expense-${e.id}`,
+            label: `Gasto · ${e.description}`,
+            amountCents: -e.amountCents,
+            createdAt: e.createdAt.toISOString(),
+        })),
+        ...cashMovements.map((m) => ({
+            id: `mov-${m.id}`,
+            label: m.reason || (m.type === "DEPOSITO" ? "Entrada de efectivo" : "Salida de efectivo"),
+            amountCents: m.type === "DEPOSITO" ? m.amountCents : -m.amountCents,
+            createdAt: m.createdAt.toISOString(),
+        })),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: TENANT_TIME_ZONE });
 
@@ -244,6 +295,7 @@ export default async function TenantPage({ params }) {
                 shiftHistory={plainShiftHistory}
                 openShift={plainOpenShift}
                 expectedCashCents={expectedCashCents}
+                cashLedger={cashLedger}
                 cashMovements={plainCashMovements}
                 activePaymentMethods={activePaymentMethods}
                 paymentMethodStatus={paymentMethodStatus}

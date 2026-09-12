@@ -63,6 +63,7 @@ export async function updateExpense(
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
 
     const existing = await findOwnedOrThrow("expense", expenseId, tenantId, "Gasto no encontrado");
+    if (existing.cancelledAt) throw new Error("Este gasto está cancelado y ya no se puede editar.");
     if (productId) await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
     const newQty = productId ? Math.max(1, Math.round(quantity) || 1) : null;
@@ -121,7 +122,7 @@ export async function getExpensesForRange(slug, { from, to }) {
         include: { product: true },
         orderBy: { createdAt: "desc" },
     });
-    return expenses.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() }));
+    return expenses.map((e) => ({ ...e, createdAt: e.createdAt.toISOString(), cancelledAt: e.cancelledAt?.toISOString() ?? null }));
 }
 
 export async function exportExpensesCSV(slug, { from, to }) {
@@ -133,6 +134,9 @@ export async function exportExpensesCSV(slug, { from, to }) {
     });
     return toCSV(expenses, [
         { label: "Folio", value: (e) => e.folio || "" },
+        { label: "Estado", value: (e) => (e.cancelledAt ? "CANCELADO" : "Activo") },
+        { label: "Cancelado por", value: (e) => e.cancelledByName ?? "" },
+        { label: "Motivo de cancelación", value: (e) => e.cancelReason ?? "" },
         { label: "Fecha", value: (e) => e.createdAt.toLocaleString("es-MX") },
         { label: "Categoría", value: (e) => EXPENSE_CATEGORY_META[e.category].label },
         { label: "Descripción", value: (e) => e.description },
@@ -147,19 +151,26 @@ export async function exportExpensesCSV(slug, { from, to }) {
     ]);
 }
 
-export async function deleteExpense(expenseId, slug) {
+// Cancelar (no borrar), igual que en ventas: el gasto se queda registrado con quién lo
+// canceló y por qué, pero deja de contar para finanzas y para el efectivo de la caja. Si
+// era una compra de stock, las piezas que había sumado se devuelven.
+export async function cancelExpense(expenseId, slug, { reason } = {}) {
     const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "delete");
     const existing = await findOwnedOrThrow("expense", expenseId, tenantId, "Gasto no encontrado");
+    if (existing.cancelledAt) throw new Error("Este gasto ya estaba cancelado.");
 
     await prisma.$transaction(async (tx) => {
-        await tx.expense.deleteMany({ where: { id: expenseId, tenantId } });
+        await tx.expense.updateMany({
+            where: { id: expenseId, tenantId },
+            data: { cancelledAt: new Date(), cancelledByName: user.name, cancelReason: reason?.trim() || null },
+        });
         if (existing.productId && existing.quantity) {
             await applyStockMovement(tx, {
                 tenantId,
                 productId: existing.productId,
                 type: "SALIDA",
                 quantity: existing.quantity,
-                reason: "Gasto de compra eliminado",
+                reason: "Gasto de compra cancelado",
                 createdByName: user.name,
             });
         }

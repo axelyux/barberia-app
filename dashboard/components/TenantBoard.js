@@ -66,6 +66,7 @@ export default function TenantBoard({
     paymentMethodStatus,
     openShift,
     expectedCashCents,
+    cashLedger,
     cashMovements,
     finance,
     todayLabel,
@@ -222,6 +223,7 @@ export default function TenantBoard({
                                 <CashShiftPanel
                                     openShift={openShift}
                                     expectedCashCents={expectedCashCents}
+                                    cashLedger={cashLedger}
                                     shiftHistory={shiftHistory}
                                     cashMovements={cashMovements}
                                     slug={tenant.slug}

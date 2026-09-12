@@ -92,7 +92,7 @@ export async function closeShift(slug, { closingCashCents, notes }) {
         prisma.booking.findMany({ where: { tenantId, status: "COMPLETED", completedAt: range } }),
         prisma.productSale.findMany({ where: { tenantId, createdAt: range, cancelledAt: null } }),
         prisma.serviceSale.findMany({ where: { tenantId, createdAt: range, cancelledAt: null } }),
-        prisma.expense.findMany({ where: { tenantId, createdAt: range } }),
+        prisma.expense.findMany({ where: { tenantId, createdAt: range, cancelledAt: null } }),
         prisma.cashMovement.findMany({ where: { tenantId, cashShiftId: shift.id } }),
     ]);
 

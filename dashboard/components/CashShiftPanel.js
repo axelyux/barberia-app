@@ -10,11 +10,6 @@ import { money, shortDateTime, contrastText } from "@/lib/format";
 import { closeShift, registerCashMovement } from "@/app/t/[slug]/shift-actions";
 import { useToast } from "@/components/Toast";
 
-const CASH_MOVEMENT_META = {
-    RETIRO: { label: "Retiro", sign: "−", color: "text-red-400" },
-    DEPOSITO: { label: "Depósito", sign: "+", color: "text-emerald-400" },
-};
-
 function CashMovementForm({ brandStyle, isPending, error, onSave, onCancel }) {
     const [type, setType] = useState("RETIRO");
     const [amount, setAmount] = useState("");
@@ -70,17 +65,17 @@ function CashMovementForm({ brandStyle, isPending, error, onSave, onCancel }) {
 export default function CashShiftPanel({
     openShift,
     expectedCashCents = 0,
+    cashLedger = [],
     shiftHistory,
-    cashMovements: initialCashMovements,
     slug,
     brandColor,
     canClose,
     canAddCashMovement,
 }) {
     const [notes, setNotes] = useState("");
-    const [cashMovements, setCashMovements] = useState(initialCashMovements ?? []);
     const [movementOpen, setMovementOpen] = useState(false);
     const [visibleHistoryCount, setVisibleHistoryCount] = useState(5);
+    const [visibleLedgerCount, setVisibleLedgerCount] = useState(10);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     useGlobalPending(isPending);
@@ -103,7 +98,6 @@ export default function CashShiftPanel({
         startTransition(async () => {
             try {
                 await registerCashMovement(slug, data);
-                setCashMovements((prev) => [{ ...data, id: `tmp-${Date.now()}`, createdAt: new Date().toISOString() }, ...prev]);
                 setMovementOpen(false);
                 showToast(data.type === "RETIRO" ? "Salida de efectivo registrada" : "Entrada de efectivo registrada");
             } catch (err) {
@@ -141,22 +135,41 @@ export default function CashShiftPanel({
                     </button>
                 ) : null}
 
-                {cashMovements.length > 0 ? (
-                    <div className="mt-3 flex flex-col gap-1.5 border-t border-white/10 pt-3">
-                        {cashMovements.map((m) => {
-                            const meta = CASH_MOVEMENT_META[m.type];
-                            return (
-                                <div key={m.id} className="flex items-center justify-between text-xs">
-                                    <span className="truncate text-zinc-400">{m.reason || meta.label}</span>
-                                    <span className={`font-numeric shrink-0 font-bold ${meta.color}`}>
-                                        {meta.sign}
-                                        {money(m.amountCents)}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : null}
+                {/* Desglose de todo lo que movió billetes en el cajón: ventas en efectivo,
+                    gastos pagados desde la caja, y las entradas/salidas manuales. El fondo
+                    inicial más estas líneas da exactamente el efectivo esperado. */}
+                <div className="mt-3 border-t border-white/10 pt-3">
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Movimientos de efectivo</p>
+                    {cashLedger.length === 0 ? (
+                        <p className="text-xs text-zinc-500">Todavía no hay movimientos de efectivo en este turno.</p>
+                    ) : (
+                        <>
+                            <div className="flex flex-col gap-1.5">
+                                {cashLedger.slice(0, visibleLedgerCount).map((m) => (
+                                    <div key={m.id} className="flex items-center justify-between gap-2 text-xs">
+                                        <span className="min-w-0 truncate text-zinc-400">{m.label}</span>
+                                        <span className={`font-numeric shrink-0 font-bold ${m.amountCents < 0 ? "text-red-400" : "text-emerald-400"}`}>
+                                            {m.amountCents < 0 ? "−" : "+"}
+                                            {money(Math.abs(m.amountCents))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            {cashLedger.length > visibleLedgerCount ? (
+                                <button
+                                    onClick={() => setVisibleLedgerCount((n) => n + 10)}
+                                    className="mt-2 flex min-h-9 w-full items-center justify-center rounded-lg border border-white/10 text-[11px] font-bold text-zinc-400 hover:bg-white/5"
+                                >
+                                    Ver {cashLedger.length - visibleLedgerCount} más
+                                </button>
+                            ) : null}
+                            <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2.5 text-xs">
+                                <span className="font-bold text-zinc-300">Efectivo en caja ahora</span>
+                                <b className="font-numeric text-zinc-100">{money(expectedCashCents)}</b>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {canClose ? (

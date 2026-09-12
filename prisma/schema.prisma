@@ -428,6 +428,11 @@ model Permission {
 model Expense {
   id          String          @id @default(cuid())
   folio       Int             @default(0)
+  // Igual que las ventas: los gastos no se borran, se cancelan. Un gasto cancelado deja
+  // de contar para finanzas y para el efectivo de la caja, pero el registro se queda.
+  cancelledAt     DateTime?
+  cancelledByName String?
+  cancelReason    String?
   tenantId    String
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category    ExpenseCategory

@@ -12,7 +12,7 @@ import { PAYMENT_METHOD_LABELS, visiblePaymentMethods } from "@/lib/payments";
 import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
-import { createExpense, updateExpense, deleteExpense, getExpensesForRange, exportExpensesCSV } from "@/app/t/[slug]/finance-actions";
+import { createExpense, updateExpense, cancelExpense, getExpensesForRange, exportExpensesCSV } from "@/app/t/[slug]/finance-actions";
 
 const emptyForm = { category: "INSUMOS", description: "", amount: "", productId: "", quantity: "1", paymentMethod: "EFECTIVO" };
 
@@ -238,7 +238,7 @@ function CreateExpenseForm({ products, activeMethods, brandStyle, isPending, err
     );
 }
 
-function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
+function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPending, error, canEdit, canDelete, onSave, onCancelExpense }) {
     const [category, setCategory] = useState(expense.category);
     const [description, setDescription] = useState(expense.description);
     const [amount, setAmount] = useState(String(expense.amountCents / 100));
@@ -251,9 +251,23 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
     const [paidByName, setPaidByName] = useState(expense.paidByName ?? "");
     const [fromCashRegister, setFromCashRegister] = useState(expense.fromCashRegister !== false);
     const [when, setWhen] = useState(() => toDatetimeLocalValue(expense.createdAt));
+    const [confirmCancel, setConfirmCancel] = useState(false);
+    const [cancelReason, setCancelReason] = useState("");
+    const isCancelled = !!expense.cancelledAt;
+    const editable = canEdit && !isCancelled;
 
     return (
         <>
+            {isCancelled ? (
+                <div className="mb-3 rounded-lg border border-red-800/40 bg-red-500/10 p-3">
+                    <p className="text-sm font-bold text-red-300">Gasto cancelado</p>
+                    <p className="mt-0.5 text-[12px] text-red-200/80">
+                        {shortDateTime(expense.cancelledAt)}
+                        {expense.cancelledByName ? ` · por ${expense.cancelledByName}` : ""}
+                    </p>
+                    {expense.cancelReason ? <p className="mt-1 text-[12px] text-red-200/80">Motivo: {expense.cancelReason}</p> : null}
+                </div>
+            ) : null}
             <div className="flex flex-col gap-3.5">
                 <ProductPurchaseFields
                     products={products}
@@ -261,22 +275,22 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                     quantity={quantity}
                     onProductId={setProductId}
                     onQuantity={setQuantity}
-                    disabled={!canEdit}
+                    disabled={!editable}
                 />
                 <Field label="Categoría">
-                    <CategorySelect value={category} onChange={(e) => setCategory(e.target.value)} disabled={!canEdit} />
+                    <CategorySelect value={category} onChange={(e) => setCategory(e.target.value)} disabled={!editable} />
                 </Field>
                 <Field label="Descripción">
-                    <TextInput disabled={!canEdit} value={description} onChange={(e) => setDescription(e.target.value)} />
+                    <TextInput disabled={!editable} value={description} onChange={(e) => setDescription(e.target.value)} />
                 </Field>
                 <Field label="Monto total (MXN)">
-                    <NumberInput disabled={!canEdit} value={amount} onChange={(e) => setAmount(e.target.value)} min="0" />
+                    <NumberInput disabled={!editable} value={amount} onChange={(e) => setAmount(e.target.value)} min="0" />
                 </Field>
                 <Field label="Método de pago">
                     <PaymentMethodSelect
                         value={paymentMethod}
                         onChange={(e) => setPaymentMethod(e.target.value)}
-                        disabled={!canEdit}
+                        disabled={!editable}
                         activeMethods={activeMethods}
                     />
                 </Field>
@@ -284,7 +298,7 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                     paymentMethod={paymentMethod}
                     value={fromCashRegister}
                     onChange={setFromCashRegister}
-                    disabled={!canEdit}
+                    disabled={!editable}
                 />
                 <VendorFields
                     vendor={vendor}
@@ -295,12 +309,12 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                     onReceiptNumber={setReceiptNumber}
                     onIsRecurring={setIsRecurring}
                     onPaidByName={setPaidByName}
-                    disabled={!canEdit}
+                    disabled={!editable}
                 />
                 <Field label="Fecha y hora">
                     <input
                         type="datetime-local"
-                        disabled={!canEdit}
+                        disabled={!editable}
                         value={when}
                         onChange={(e) => setWhen(e.target.value)}
                         className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
@@ -308,7 +322,7 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                 </Field>
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
-            {canEdit || canDelete ? (
+            {isCancelled ? null : (
                 <div className="mt-4 flex flex-col gap-2.5">
                     {canEdit ? (
                         <SheetButton
@@ -336,12 +350,35 @@ function EditExpenseForm({ expense, products, activeMethods, brandStyle, isPendi
                         </SheetButton>
                     ) : null}
                     {canDelete ? (
-                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
-                            Eliminar
-                        </SheetButton>
+                        confirmCancel ? (
+                            <div className="flex flex-col gap-2.5 rounded-lg border border-red-900/40 p-3">
+                                <p className="text-xs text-zinc-400">
+                                    El gasto no se borra: queda registrado como cancelado y deja de contar para tus finanzas y para
+                                    el efectivo de la caja.
+                                    {expense.productId ? " El stock que había sumado se descuenta del inventario." : ""}
+                                </p>
+                                <Field label="Motivo (opcional)">
+                                    <TextInput
+                                        value={cancelReason}
+                                        onChange={(e) => setCancelReason(e.target.value)}
+                                        placeholder="Ej. Se registró dos veces por error"
+                                    />
+                                </Field>
+                                <SheetButton variant="danger" loading={isPending} onClick={() => onCancelExpense({ reason: cancelReason })}>
+                                    Confirmar cancelación
+                                </SheetButton>
+                                <SheetButton variant="ghost" onClick={() => setConfirmCancel(false)}>
+                                    Volver
+                                </SheetButton>
+                            </div>
+                        ) : (
+                            <SheetButton variant="danger" loading={isPending} onClick={() => setConfirmCancel(true)}>
+                                Cancelar gasto
+                            </SheetButton>
+                        )
                     ) : null}
                 </div>
-            ) : null}
+            )}
         </>
     );
 }
@@ -420,7 +457,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                         className="flex w-full items-center justify-between gap-2 border-b border-white/10 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-zinc-800/30 active:bg-zinc-800/40"
                     >
                         <div className="min-w-0">
-                            <p className="truncate font-semibold text-zinc-100">
+                            <p className={`truncate font-semibold ${e.cancelledAt ? "text-zinc-500 line-through" : "text-zinc-100"}`}>
                                 {e.folio ? <span className="text-zinc-500">#{e.folio} · </span> : null}
                                 {e.description}
                                 {e.isRecurring ? (
@@ -433,8 +470,16 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                                 {e.product ? ` · +${e.quantity} ${e.product.name} a stock` : ""}
                                 {e.vendor ? ` · ${e.vendor}` : ""}
                             </p>
+                            {e.cancelledAt ? (
+                                <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-red-400">
+                                    Cancelado{e.cancelledByName ? ` · ${e.cancelledByName}` : ""}
+                                </p>
+                            ) : null}
                         </div>
-                        <span className="font-numeric shrink-0 font-bold text-red-400">-{money(e.amountCents)}</span>
+                        <span className={`font-numeric shrink-0 font-bold ${e.cancelledAt ? "text-zinc-600 line-through" : "text-red-400"}`}>
+                            {e.cancelledAt ? "" : "-"}
+                            {money(e.amountCents)}
+                        </span>
                     </button>
                 ))}
                 {expenses.length === 0 ? (
@@ -481,7 +526,9 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                         canEdit={perms.canEdit}
                         canDelete={perms.canDelete}
                         onSave={(data) => run(() => updateExpense(editing.id, slug, data), null, "Cambios guardados")}
-                        onDelete={() => run(() => deleteExpense(editing.id, slug), () => setEditingId(null), "Gasto eliminado")}
+                        onCancelExpense={({ reason }) =>
+                            run(() => cancelExpense(editing.id, slug, { reason }), () => setEditingId(null), "Gasto cancelado")
+                        }
                     />
                 ) : null}
             </BottomSheet>
