@@ -9,10 +9,9 @@ import DateRangeBar from "@/components/DateRangeBar";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, localInputToISO, contrastText } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, visiblePaymentMethods } from "@/lib/payments";
-import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
-import { createExpense, updateExpense, cancelExpense, getExpensesForRange, exportExpensesCSV } from "@/app/t/[slug]/finance-actions";
+import { createExpense, updateExpense, cancelExpense, getExpensesForRange } from "@/app/t/[slug]/finance-actions";
 
 const emptyForm = { category: "INSUMOS", description: "", amount: "", productId: "", quantity: "1", paymentMethod: "EFECTIVO" };
 
@@ -424,18 +423,6 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
 
     const filter = () => run(() => Promise.resolve());
 
-    const exportCSV = () => {
-        setError("");
-        startTransition(async () => {
-            try {
-                const csv = await exportExpensesCSV(slug, range());
-                downloadCSV(csv, `gastos_${fromDate}_a_${toDate}.csv`);
-            } catch (err) {
-                setError(err?.message ?? "No se pudo exportar el CSV.");
-            }
-        });
-    };
-
     return (
         <div>
             <div className="mb-2.5 flex items-center justify-between">
@@ -453,7 +440,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                     </button>
                 ) : null}
             </div>
-            <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} onExport={exportCSV} isPending={isPending} />
+            <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} isPending={isPending} />
             <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                 {expenses.slice(0, visibleCount).map((e) => (
                     <button

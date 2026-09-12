@@ -9,19 +9,10 @@ export function toCSV(rows, columns) {
     return [header, ...lines].join("\n");
 }
 
-// Solo se llama desde el navegador (dentro de un onClick), nunca durante el render en servidor.
-export function downloadCSV(csv, filename) {
-    // El BOM (﻿) al inicio es lo que le dice a Excel "esto es UTF-8 de verdad" — sin
-    // él, Excel adivina mal la codificación y los acentos (día, teléfono, año...) salen
-    // como símbolos raros. Casi todo lo que exporta este panel tiene acentos, así que sin
-    // esto el archivo se veía mal siempre, no solo a veces.
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-}
+// Nota: aquí vivía downloadCSV(), que generaba el archivo con un <a download> y una URL de
+// blob. Eso funciona en un navegador de escritorio, pero en la app instalada (WebView de
+// Android/iOS) la descarga se bloquea o se ignora en silencio: el botón "Exportar CSV" no
+// guardaba nada en ningún lado. Se quitó el botón hasta resolver la descarga de forma que
+// sí funcione dentro de la app (hoja de compartir del sistema, o una ruta del servidor que
+// devuelva el archivo con Content-Disposition). Las funciones exportSalesCSV /
+// exportExpensesCSV del servidor se conservan porque ya arman bien el contenido.

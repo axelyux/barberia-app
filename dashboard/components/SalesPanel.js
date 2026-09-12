@@ -10,7 +10,6 @@ import Badge from "@/components/Badge";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, toDatetimeLocalValue, toDateInputValue, localInputToISO, contrastText } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_META, visiblePaymentMethods } from "@/lib/payments";
-import { downloadCSV } from "@/lib/csv";
 import { useToast } from "@/components/Toast";
 import {
     registerProductSale,
@@ -20,7 +19,6 @@ import {
     updateServiceSale,
     cancelServiceSale,
     getSalesForRange,
-    exportSalesCSV,
 } from "@/app/t/[slug]/sales-actions";
 
 const startOf30DaysAgo = () => toDateInputValue(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
@@ -476,18 +474,6 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
 
     const filter = () => run(() => Promise.resolve());
 
-    const exportCSV = () => {
-        setError("");
-        startTransition(async () => {
-            try {
-                const csv = await exportSalesCSV(slug, range());
-                downloadCSV(csv, `ventas_${fromDate}_a_${toDate}.csv`);
-            } catch (err) {
-                setError(err?.message ?? "No se pudo exportar el CSV.");
-            }
-        });
-    };
-
     const create = (kind, data) => {
         const action = kind === "product" ? registerProductSale : registerServiceSale;
         run(() => action(slug, data), () => setCreateOpen(false), "Venta registrada");
@@ -521,7 +507,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                 ) : null}
             </div>
 
-            <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} onExport={exportCSV} isPending={isPending} />
+            <DateRangeBar from={fromDate} to={toDate} onFrom={setFromDate} onTo={setToDate} onFilter={filter} isPending={isPending} />
 
             <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
                 {sales.slice(0, visibleCount).map((s) => {

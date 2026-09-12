@@ -6,7 +6,7 @@ const inputClass =
 const buttonClass =
     "flex min-h-11 items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3 text-xs font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 active:bg-zinc-800/80 disabled:cursor-not-allowed disabled:opacity-50";
 
-export default function DateRangeBar({ from, to, onFrom, onTo, onFilter, onExport, isPending }) {
+export default function DateRangeBar({ from, to, onFrom, onTo, onFilter, isPending }) {
     return (
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
@@ -17,11 +17,6 @@ export default function DateRangeBar({ from, to, onFrom, onTo, onFilter, onExpor
             <button onClick={onFilter} disabled={isPending} className={buttonClass}>
                 Filtrar
             </button>
-            {onExport ? (
-                <button onClick={onExport} disabled={isPending} className={buttonClass}>
-                    Exportar CSV
-                </button>
-            ) : null}
         </div>
     );
 }
