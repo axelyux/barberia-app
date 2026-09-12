@@ -9,7 +9,11 @@ export const DEFAULT_TIME_ZONE = "America/Mexico_City";
 // Zonas horarias que cubren todo México. Si algún día se vende fuera del país, aquí se
 // agregan las que hagan falta: el resto del código ya no asume ninguna en particular.
 export const TIME_ZONES = [
-    { value: "America/Mexico_City", label: "Centro (CDMX, Guadalajara, Monterrey)" },
+    { value: "America/Mexico_City", label: "Centro (CDMX, Guadalajara, Monterrey, Tampico)" },
+    // Los municipios fronterizos siguen el horario de verano de EE.UU.: de marzo a noviembre
+    // van una hora adelante del Centro, y en invierno coinciden. Sin esta opción, una
+    // barbería en Reynosa o Matamoros tendría sus horarios corridos medio año.
+    { value: "America/Matamoros", label: "Frontera (Matamoros, Reynosa, Nuevo Laredo)" },
     { value: "America/Cancun", label: "Sureste (Cancún, Quintana Roo)" },
     { value: "America/Chihuahua", label: "Pacífico (Chihuahua)" },
     { value: "America/Hermosillo", label: "Sonora (Hermosillo)" },
