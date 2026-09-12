@@ -7,6 +7,19 @@
 export function friendlyError(err, fallback = "Algo salió mal, intenta de nuevo.") {
     const message = err?.message;
     if (!message || typeof message !== "string") return fallback;
+
+    // Pasa justo después de publicar una actualización: el teléfono ya tenía la página
+    // vieja abierta, con IDs de Server Action de la versión anterior, que dejan de existir
+    // en el servidor nuevo. No es un error de datos — se arregla solo recargando la
+    // página, así que lo hacemos automáticamente en vez de dejar al usuario atorado con un
+    // formulario que nunca va a funcionar hasta que él mismo piense en recargar.
+    if (/failed to find server action|was not found on the server/i.test(message)) {
+        if (typeof window !== "undefined") {
+            setTimeout(() => window.location.reload(), 1200);
+        }
+        return "Se actualizó la aplicación. Recargando…";
+    }
+
     if (/minified react error|react\.dev\/errors|digest property|hydration/i.test(message)) return fallback;
     return message;
 }
