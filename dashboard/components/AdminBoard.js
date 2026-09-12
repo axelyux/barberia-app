@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
@@ -100,7 +101,7 @@ function WhatsappLinkForm({ tenant }) {
                 setMetaAccessToken("");
                 setSavedAt(new Date());
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -148,7 +149,7 @@ function DeleteTenantForm({ tenant, onDeleted }) {
                 await deleteTenant(tenant.id, confirmText);
                 onDeleted();
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -209,7 +210,7 @@ function EditTenantForm({ tenant, isPending, error, onSave, onMarkPaid, onSuspen
                         rel="noreferrer"
                         className="flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 bg-zinc-800/60 text-sm font-bold text-zinc-100"
                     >
-                        💬 Enviar recordatorio por WhatsApp
+                        Enviar recordatorio por WhatsApp
                     </a>
                 ) : null}
                 {tenant.status === "PAUSED" ? (
@@ -261,7 +262,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                 }
                 onSuccess?.(result);
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -378,7 +379,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                             rel="noreferrer"
                                             className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-emerald-800/50 bg-zinc-800/60 text-sm font-semibold text-emerald-400"
                                         >
-                                            💬 Cobrar
+                                            Cobrar
                                         </a>
                                     ) : (
                                         <span className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-white/10 bg-zinc-800/30 text-sm text-zinc-600">

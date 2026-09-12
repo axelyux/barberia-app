@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -417,7 +418,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
                 onDone?.();
                 if (successMessage) showToast(successMessage);
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -438,17 +439,17 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
 
     const create = (kind, data) => {
         const action = kind === "product" ? registerProductSale : registerServiceSale;
-        run(() => action(slug, data), () => setCreateOpen(false), "✅ Venta registrada");
+        run(() => action(slug, data), () => setCreateOpen(false), "Venta registrada");
     };
 
     const save = (data) => {
         const action = editing.kind === "product" ? updateProductSale : updateServiceSale;
-        run(() => action(editing.id, slug, data), null, "✅ Cambios guardados");
+        run(() => action(editing.id, slug, data), null, "Cambios guardados");
     };
 
     const remove = () => {
         const action = editing.kind === "product" ? deleteProductSale : deleteServiceSale;
-        run(() => action(editing.id, slug), () => setEditingId(null), "🗑️ Venta eliminada");
+        run(() => action(editing.id, slug), () => setEditingId(null), "Venta eliminada");
     };
 
     return (

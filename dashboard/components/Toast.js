@@ -4,10 +4,10 @@ import { createContext, useCallback, useContext, useRef, useState } from "react"
 
 const ToastContext = createContext(null);
 
-// Confirmación visual reutilizable en toda la app ("✅ Guardado", "🗑️ Eliminado", etc.) —
-// antes, guardar o borrar algo en varias pantallas (Ventas, Citas...) no daba ninguna
-// señal de que sí funcionó; el usuario tenía que adivinar. Una sola cola de toasts en la
-// raíz de la app, nada de estado repetido en cada formulario.
+// Confirmación visual reutilizable en toda la app ("Guardado", "Eliminado", etc., con un
+// ícono en vez de emoji) — antes, guardar o borrar algo en varias pantallas (Ventas,
+// Citas...) no daba ninguna señal de que sí funcionó; el usuario tenía que adivinar. Una
+// sola cola de toasts en la raíz de la app, nada de estado repetido en cada formulario.
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
     const idRef = useRef(0);
@@ -35,7 +35,16 @@ export function ToastProvider({ children }) {
                         }`}
                     >
                         {t.tone === "bad" ? (
-                            <span aria-hidden>⚠️</span>
+                            <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-red-400" fill="none">
+                                <path
+                                    d="M10 6.5v4.5M10 14h.01"
+                                    stroke="currentColor"
+                                    strokeWidth="2.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                                <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.6" opacity="0.5" />
+                            </svg>
                         ) : (
                             <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-emerald-400" fill="none">
                                 <path

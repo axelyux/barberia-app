@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import SheetButton from "@/components/SheetButton";
@@ -37,7 +38,7 @@ export default function BusinessHoursEditor({ tenant, hours, perms }) {
                 await updateBusinessHours(tenant.slug, days, parseInt(minNotice, 10) || 0);
                 setSaved(true);
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };

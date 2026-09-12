@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -81,7 +82,7 @@ export default function ShiftTypesEditor({ shiftTypes, slug, brandColor, perms }
                 await fn();
                 onDone?.();
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };

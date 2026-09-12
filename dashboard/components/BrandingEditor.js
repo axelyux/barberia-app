@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import Avatar from "@/components/Avatar";
@@ -21,7 +22,7 @@ export default function BrandingEditor({ tenant, perms }) {
                 await updateBranding(tenant.slug, form);
                 setSaved(true);
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };

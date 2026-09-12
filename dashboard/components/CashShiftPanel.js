@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -81,7 +82,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, cashMovements:
             try {
                 await closeShift(slug, { closingCashCents: Math.round(parseFloat(closingCash || "0") * 100), notes });
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -93,9 +94,9 @@ export default function CashShiftPanel({ openShift, shiftHistory, cashMovements:
                 await registerCashMovement(slug, data);
                 setCashMovements((prev) => [{ ...data, id: `tmp-${Date.now()}`, createdAt: new Date().toISOString() }, ...prev]);
                 setMovementOpen(false);
-                showToast(data.type === "RETIRO" ? "✅ Salida de efectivo registrada" : "✅ Entrada de efectivo registrada");
+                showToast(data.type === "RETIRO" ? "Salida de efectivo registrada" : "Entrada de efectivo registrada");
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -125,7 +126,7 @@ export default function CashShiftPanel({ openShift, shiftHistory, cashMovements:
                         }}
                         className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-white/10 text-xs font-bold text-zinc-300 hover:bg-white/5"
                     >
-                        💵 Sacar / meter dinero de la caja
+                        Sacar / meter dinero de la caja
                     </button>
                 ) : null}
 

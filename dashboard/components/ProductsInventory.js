@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -107,9 +108,9 @@ export default function ProductsInventory({ products, initialMovements, slug, br
                 setMovements(await getInventoryMovements(slug));
                 setVisibleCount(20);
                 onDone?.();
-                showToast("✅ Movimiento registrado");
+                showToast("Movimiento registrado");
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };

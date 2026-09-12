@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useEffect, useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -240,7 +241,7 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
                 await fn();
                 onDone?.();
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -281,7 +282,7 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-bold text-zinc-50">{c.name}</p>
                                 <p className="truncate text-xs text-zinc-500">
-                                    {c.notes || (c.birthDate ? `🎂 ${shortDate(c.birthDate)}` : "Sin notas")}
+                                    {c.notes || (c.birthDate ? `${shortDate(c.birthDate)}` : "Sin notas")}
                                 </p>
                             </div>
                             <span className="font-numeric shrink-0 text-sm text-zinc-400">{c.phone}</span>

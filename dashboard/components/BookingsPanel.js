@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import Badge from "@/components/Badge";
@@ -170,7 +171,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                 onDone?.();
                 if (successMessage) showToast(successMessage);
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -236,7 +237,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                             isPending={isPending}
                             error={error}
                             onCancel={() => setCreateOpen(false)}
-                            onSave={(data) => run(() => createBooking(slug, { ...data, dateISO }), () => setCreateOpen(false), "✅ Cita agendada")}
+                            onSave={(data) => run(() => createBooking(slug, { ...data, dateISO }), () => setCreateOpen(false), "Cita agendada")}
                         />
                     ) : null}
                 </BottomSheet>
@@ -308,7 +309,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                                         barberId: barberId || null,
                                                     }),
                                                 null,
-                                                "✅ Cambios guardados"
+                                                "Cambios guardados"
                                             )
                                         }
                                     >
@@ -360,7 +361,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                                                 amountPaidCents: Math.round(parseFloat(amountPaid || "0") * 100),
                                                             }),
                                                         null,
-                                                        "✅ Cita completada"
+                                                        "Cita completada"
                                                     )
                                                 }
                                             >
@@ -383,7 +384,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, slug
                                 <SheetButton
                                     variant="danger"
                                     loading={isPending}
-                                    onClick={() => run(() => deleteBooking(selected.id, slug), () => setSelectedId(null), "🗑️ Cita eliminada")}
+                                    onClick={() => run(() => deleteBooking(selected.id, slug), () => setSelectedId(null), "Cita eliminada")}
                                 >
                                     Eliminar cita
                                 </SheetButton>

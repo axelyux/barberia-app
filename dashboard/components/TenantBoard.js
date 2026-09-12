@@ -86,7 +86,6 @@ export default function TenantBoard({
     // oculta el botón correspondiente en pantalla (si no tienes permiso, no hacen nada).
     const [bookingHotkeySignal, setBookingHotkeySignal] = useState(0);
     const [saleHotkeySignal, setSaleHotkeySignal] = useState(0);
-    const [expenseHotkeySignal, setExpenseHotkeySignal] = useState(0);
     useHotkeys({
         F2: () => {
             if (!perms.CITAS.canAdd) return;
@@ -286,18 +285,6 @@ export default function TenantBoard({
 
                 {activeTab === "caja" ? (
                     <>
-                        {perms.FINANZAS.canAdd ? (
-                            <button
-                                onClick={() => {
-                                    setCajaSubTab("gastos");
-                                    setExpenseHotkeySignal((n) => n + 1);
-                                }}
-                                className="mb-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-red-800/40 bg-red-500/10 text-sm font-bold text-red-300 transition-colors hover:bg-red-500/15"
-                            >
-                                💸 Registrar gasto
-                            </button>
-                        ) : null}
-
                         {(perms.PRODUCTOS.canView || perms.SERVICIOS.canView) && perms.FINANZAS.canView ? (
                             <div className="grid grid-cols-2 gap-2">
                                 <button
@@ -332,7 +319,6 @@ export default function TenantBoard({
                                 slug={tenant.slug}
                                 brandColor={brandColor}
                                 perms={perms.FINANZAS}
-                                openCreateSignal={expenseHotkeySignal}
                             />
                         ) : (
                             <SalesPanel

@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
@@ -295,21 +296,13 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
     );
 }
 
-export default function ExpenseList({ expenses: initialExpenses, products = [], slug, brandColor, perms, openCreateSignal }) {
+export default function ExpenseList({ expenses: initialExpenses, products = [], slug, brandColor, perms }) {
     const [expenses, setExpenses] = useState(initialExpenses);
     const [visibleCount, setVisibleCount] = useState(20);
     const [fromDate, setFromDate] = useState(startOf30DaysAgo);
     const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
     const [createOpen, setCreateOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    // Deja que un botón/atajo de OTRA parte de la pantalla (fuera de este componente) abra
-    // el formulario de "nuevo gasto" — se compara contra el valor anterior durante el
-    // render en vez de un useEffect, para no disparar un setState dentro de un efecto.
-    const [seenCreateSignal, setSeenCreateSignal] = useState(openCreateSignal);
-    if (openCreateSignal !== seenCreateSignal) {
-        setSeenCreateSignal(openCreateSignal);
-        if (openCreateSignal && perms.canAdd) setCreateOpen(true);
-    }
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     const editing = expenses.find((e) => e.id === editingId) ?? null;
@@ -328,7 +321,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                 onDone?.();
                 if (successMessage) showToast(successMessage);
             } catch (err) {
-                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+                setError(friendlyError(err));
             }
         });
     };
@@ -415,7 +408,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                             isPending={isPending}
                             error={error}
                             onCancel={() => setCreateOpen(false)}
-                            onSave={(data) => run(() => createExpense(slug, data), () => setCreateOpen(false), "✅ Gasto registrado")}
+                            onSave={(data) => run(() => createExpense(slug, data), () => setCreateOpen(false), "Gasto registrado")}
                         />
                     ) : null}
                 </BottomSheet>
@@ -432,8 +425,8 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
                         error={error}
                         canEdit={perms.canEdit}
                         canDelete={perms.canDelete}
-                        onSave={(data) => run(() => updateExpense(editing.id, slug, data), null, "✅ Cambios guardados")}
-                        onDelete={() => run(() => deleteExpense(editing.id, slug), () => setEditingId(null), "🗑️ Gasto eliminado")}
+                        onSave={(data) => run(() => updateExpense(editing.id, slug, data), null, "Cambios guardados")}
+                        onDelete={() => run(() => deleteExpense(editing.id, slug), () => setEditingId(null), "Gasto eliminado")}
                     />
                 ) : null}
             </BottomSheet>
