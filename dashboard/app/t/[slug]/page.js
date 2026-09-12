@@ -70,6 +70,8 @@ export default async function TenantPage({ params }) {
         customers,
         shiftTypes,
         shiftHistory,
+        inventoryMovements30,
+        cashMovements,
     ] = await Promise.all([
         prisma.booking.findMany({
             where: { tenantId: tenant.id, scheduledAt: { gte: startOfToday, lt: startOfTomorrow } },
@@ -110,6 +112,13 @@ export default async function TenantPage({ params }) {
             orderBy: { startedAt: "desc" },
             take: 20,
         }),
+        prisma.inventoryMovement.findMany({
+            where: { tenantId: tenant.id },
+            include: { product: true },
+            orderBy: { createdAt: "desc" },
+            take: 30,
+        }),
+        prisma.cashMovement.findMany({ where: { tenantId: tenant.id, cashShiftId: openShift.id }, orderBy: { createdAt: "desc" } }),
     ]);
 
     const messagesByKey = Object.fromEntries(flowMessages.map((m) => [m.key, m.text]));
@@ -164,6 +173,8 @@ export default async function TenantPage({ params }) {
     const plainShiftTypes = shiftTypes.map((t) => ({ ...t, createdAt: t.createdAt.toISOString() }));
     const plainShiftHistory = shiftHistory.map(plainShift);
     const plainOpenShift = plainShift(openShift);
+    const plainInventoryMovements = inventoryMovements30.map((m) => ({ ...m, createdAt: m.createdAt.toISOString(), productName: m.product.name }));
+    const plainCashMovements = cashMovements.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }));
 
     const todayLabel = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
 
@@ -178,6 +189,7 @@ export default async function TenantPage({ params }) {
                 sales={plainSales}
                 services={services}
                 products={products}
+                inventoryMovements={plainInventoryMovements}
                 flowMessages={messagesByKey}
                 staffUsers={plainStaffUsers}
                 expenses={plainExpenses}
@@ -188,6 +200,7 @@ export default async function TenantPage({ params }) {
                 shiftTypes={plainShiftTypes}
                 shiftHistory={plainShiftHistory}
                 openShift={plainOpenShift}
+                cashMovements={plainCashMovements}
                 finance={{ ...finance, daily: plainDaily }}
                 todayLabel={todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)}
             />

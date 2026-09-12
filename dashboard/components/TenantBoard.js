@@ -24,7 +24,7 @@ import ShiftTypesEditor from "@/components/ShiftTypesEditor";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
 import { IconToday, IconCatalog, IconSales, IconFinance, IconWorkers, IconBot, IconSettings, IconMore } from "@/components/TabIcons";
 import { money } from "@/lib/format";
-import { createService, updateService, deleteService } from "@/app/t/[slug]/catalog-actions";
+import { createService, updateService, deleteService, createProduct, updateProduct, deleteProduct } from "@/app/t/[slug]/catalog-actions";
 import { useHotkeys } from "@/lib/useHotkeys";
 import { getBillingNotice } from "@/lib/billing";
 import BotStatus from "@/components/BotStatus";
@@ -51,6 +51,7 @@ export default function TenantBoard({
     sales,
     services,
     products,
+    inventoryMovements,
     flowMessages,
     staffUsers,
     expenses,
@@ -61,6 +62,7 @@ export default function TenantBoard({
     shiftTypes,
     shiftHistory,
     openShift,
+    cashMovements,
     finance,
     todayLabel,
 }) {
@@ -84,6 +86,7 @@ export default function TenantBoard({
     // oculta el botón correspondiente en pantalla (si no tienes permiso, no hacen nada).
     const [bookingHotkeySignal, setBookingHotkeySignal] = useState(0);
     const [saleHotkeySignal, setSaleHotkeySignal] = useState(0);
+    const [expenseHotkeySignal, setExpenseHotkeySignal] = useState(0);
     useHotkeys({
         F2: () => {
             if (!perms.CITAS.canAdd) return;
@@ -215,9 +218,11 @@ export default function TenantBoard({
                                 <CashShiftPanel
                                     openShift={openShift}
                                     shiftHistory={shiftHistory}
+                                    cashMovements={cashMovements}
                                     slug={tenant.slug}
                                     brandColor={brandColor}
                                     canClose={perms.FINANZAS.canAdd}
+                                    canAddCashMovement={perms.FINANZAS.canAdd}
                                 />
                             </div>
                         ) : null}
@@ -242,26 +247,57 @@ export default function TenantBoard({
                         ) : null}
 
                         {perms.PRODUCTOS.canView ? (
-                            <>
-                                <div className="border-t border-white/10 pt-4">
-                                    {lowStockProducts.length > 0 ? (
-                                        <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-3.5">
-                                            <p className="text-[12px] font-bold uppercase tracking-wide text-red-400">Stock bajo</p>
-                                            <p className="mt-1 text-[13px] text-red-200">
-                                                {lowStockProducts.map((p) => p.name).join(", ")} —{" "}
-                                                {lowStockProducts.length === 1 ? "necesita" : "necesitan"} reponerse pronto.
-                                            </p>
-                                        </div>
-                                    ) : null}
-                                    <ProductsInventory products={products} slug={tenant.slug} brandColor={brandColor} perms={perms.PRODUCTOS} />
+                            <div className="border-t border-white/10 pt-4">
+                                {lowStockProducts.length > 0 ? (
+                                    <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-3.5">
+                                        <p className="text-[12px] font-bold uppercase tracking-wide text-red-400">Stock bajo</p>
+                                        <p className="mt-1 text-[13px] text-red-200">
+                                            {lowStockProducts.map((p) => p.name).join(", ")} —{" "}
+                                            {lowStockProducts.length === 1 ? "necesita" : "necesitan"} reponerse pronto.
+                                        </p>
+                                    </div>
+                                ) : null}
+                                <CatalogList
+                                    title="Productos"
+                                    emptyLabel="Todavía no agregas productos."
+                                    items={products}
+                                    slug={tenant.slug}
+                                    brandColor={brandColor}
+                                    perms={perms.PRODUCTOS}
+                                    extra={{ key: "lowStockThreshold", label: "Aviso de stock bajo (piezas)", suffix: "pza. mínimo" }}
+                                    lowStockCheck={(p) => p.stock <= p.lowStockThreshold}
+                                    onCreate={createProduct}
+                                    onUpdate={updateProduct}
+                                    onDelete={deleteProduct}
+                                />
+                                <div className="mt-4 border-t border-white/10 pt-4">
+                                    <ProductsInventory
+                                        products={products}
+                                        initialMovements={inventoryMovements}
+                                        slug={tenant.slug}
+                                        brandColor={brandColor}
+                                        perms={perms.PRODUCTOS}
+                                    />
                                 </div>
-                            </>
+                            </div>
                         ) : null}
                     </>
                 ) : null}
 
                 {activeTab === "caja" ? (
                     <>
+                        {perms.FINANZAS.canAdd ? (
+                            <button
+                                onClick={() => {
+                                    setCajaSubTab("gastos");
+                                    setExpenseHotkeySignal((n) => n + 1);
+                                }}
+                                className="mb-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-red-800/40 bg-red-500/10 text-sm font-bold text-red-300 transition-colors hover:bg-red-500/15"
+                            >
+                                💸 Registrar gasto
+                            </button>
+                        ) : null}
+
                         {(perms.PRODUCTOS.canView || perms.SERVICIOS.canView) && perms.FINANZAS.canView ? (
                             <div className="grid grid-cols-2 gap-2">
                                 <button
@@ -290,7 +326,14 @@ export default function TenantBoard({
                         ) : null}
 
                         {cajaSubTab === "gastos" && perms.FINANZAS.canView ? (
-                            <ExpenseList expenses={expenses} products={products} slug={tenant.slug} brandColor={brandColor} perms={perms.FINANZAS} />
+                            <ExpenseList
+                                expenses={expenses}
+                                products={products}
+                                slug={tenant.slug}
+                                brandColor={brandColor}
+                                perms={perms.FINANZAS}
+                                openCreateSignal={expenseHotkeySignal}
+                            />
                         ) : (
                             <SalesPanel
                                 products={products}

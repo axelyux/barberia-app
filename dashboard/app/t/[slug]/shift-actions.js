@@ -29,6 +29,33 @@ export async function getShiftHistory(slug) {
     return shifts.map(plainShift);
 }
 
+// Sacar/meter efectivo de la caja MIENTRAS el turno sigue abierto (ej. un pago urgente en
+// efectivo, o meter cambio) — antes solo se podía ver el faltante/sobrante hasta cerrar,
+// sin dejar rastro de por qué no cuadraba. Se resta/suma directo en el cálculo de cierre.
+export async function registerCashMovement(slug, { type, amountCents, reason }) {
+    const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
+    if (type !== "RETIRO" && type !== "DEPOSITO") throw new Error("Tipo de movimiento inválido");
+
+    const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" } });
+    if (!shift) throw new Error("No hay ningún turno abierto.");
+
+    const amount = Math.max(0, Math.round(amountCents) || 0);
+    if (amount <= 0) throw new Error("El monto debe ser mayor a cero.");
+
+    await prisma.cashMovement.create({
+        data: { tenantId, cashShiftId: shift.id, type, amountCents: amount, reason: reason?.trim() || null, createdByName: user.name },
+    });
+    revalidatePath(`/t/${slug}`);
+}
+
+export async function getCashMovements(slug) {
+    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "view");
+    const shift = await prisma.cashShift.findFirst({ where: { tenantId, status: "ABIERTO" } });
+    if (!shift) return [];
+    const movements = await prisma.cashMovement.findMany({ where: { tenantId, cashShiftId: shift.id }, orderBy: { createdAt: "desc" } });
+    return movements.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }));
+}
+
 export async function openShift(slug, { shiftTypeId, openingCashCents }) {
     const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
 
@@ -60,11 +87,12 @@ export async function closeShift(slug, { closingCashCents, notes }) {
     const endedAt = new Date();
     const range = { gte: shift.startedAt, lte: endedAt };
 
-    const [completedBookings, productSales, serviceSales, expenses] = await Promise.all([
+    const [completedBookings, productSales, serviceSales, expenses, cashMovements] = await Promise.all([
         prisma.booking.findMany({ where: { tenantId, status: "COMPLETED", completedAt: range } }),
         prisma.productSale.findMany({ where: { tenantId, createdAt: range } }),
         prisma.serviceSale.findMany({ where: { tenantId, createdAt: range } }),
         prisma.expense.findMany({ where: { tenantId, createdAt: range } }),
+        prisma.cashMovement.findMany({ where: { tenantId, cashShiftId: shift.id } }),
     ]);
 
     const revenueRows = [...completedBookings, ...productSales, ...serviceSales];
@@ -74,8 +102,10 @@ export async function closeShift(slug, { closingCashCents, notes }) {
         .reduce((sum, r) => sum + (r.amountPaidCents ?? 0), 0);
     const totalExpenseCents = expenses.reduce((sum, e) => sum + e.amountCents, 0);
     const cashExpenseCents = expenses.filter((e) => e.paymentMethod === "EFECTIVO").reduce((sum, e) => sum + e.amountCents, 0);
+    const cashDepositCents = cashMovements.filter((m) => m.type === "DEPOSITO").reduce((sum, m) => sum + m.amountCents, 0);
+    const cashWithdrawalCents = cashMovements.filter((m) => m.type === "RETIRO").reduce((sum, m) => sum + m.amountCents, 0);
 
-    const expectedCashCents = shift.openingCashCents + cashRevenueCents - cashExpenseCents;
+    const expectedCashCents = shift.openingCashCents + cashRevenueCents - cashExpenseCents + cashDepositCents - cashWithdrawalCents;
     const closingCash = Math.max(0, Math.round(closingCashCents) || 0);
 
     await prisma.cashShift.update({

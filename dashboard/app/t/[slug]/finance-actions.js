@@ -6,12 +6,13 @@ import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
 import { EXPENSE_CATEGORY_META } from "@/lib/finance";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
+import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
 
 export async function createExpense(
     slug,
     { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
 ) {
-    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
+    const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "add");
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
     if (productId) await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
@@ -32,10 +33,10 @@ export async function createExpense(
     if (createdAt) data.createdAt = new Date(createdAt);
 
     if (productId) {
-        await prisma.$transaction([
-            prisma.expense.create({ data }),
-            prisma.product.update({ where: { id: productId }, data: { stock: { increment: qty } } }),
-        ]);
+        await prisma.$transaction(async (tx) => {
+            await tx.expense.create({ data });
+            await applyStockMovement(tx, { tenantId, productId, type: "ENTRADA", quantity: qty, reason: "Compra", createdByName: user.name });
+        });
     } else {
         await prisma.expense.create({ data });
     }
@@ -47,7 +48,7 @@ export async function updateExpense(
     slug,
     { category, description, amountCents, productId, quantity, paymentMethod, vendor, receiptNumber, isRecurring, paidByName, createdAt }
 ) {
-    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "edit");
+    const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "edit");
     if (!description?.trim()) throw new Error("La descripción es obligatoria");
 
     const existing = await findOwnedOrThrow("expense", expenseId, tenantId, "Gasto no encontrado");
@@ -68,19 +69,36 @@ export async function updateExpense(
     };
     if (createdAt) data.createdAt = new Date(createdAt);
 
-    const stockOps = [];
-    if (existing.productId && existing.productId !== productId) {
-        // Se quitó o cambió el producto: revertimos el stock que había sumado el gasto anterior.
-        stockOps.push(prisma.product.update({ where: { id: existing.productId }, data: { stock: { decrement: existing.quantity ?? 0 } } }));
-    }
-    if (productId && existing.productId === productId) {
-        const delta = newQty - (existing.quantity ?? 0);
-        if (delta !== 0) stockOps.push(prisma.product.update({ where: { id: productId }, data: { stock: { increment: delta } } }));
-    } else if (productId && existing.productId !== productId) {
-        stockOps.push(prisma.product.update({ where: { id: productId }, data: { stock: { increment: newQty } } }));
-    }
+    await prisma.$transaction(async (tx) => {
+        await tx.expense.updateMany({ where: { id: expenseId, tenantId }, data });
 
-    await prisma.$transaction([prisma.expense.updateMany({ where: { id: expenseId, tenantId }, data }), ...stockOps]);
+        if (existing.productId && existing.productId !== productId) {
+            // Se quitó o cambió el producto: revertimos el stock que había sumado el gasto anterior.
+            await applyStockMovement(tx, {
+                tenantId,
+                productId: existing.productId,
+                type: "SALIDA",
+                quantity: existing.quantity ?? 0,
+                reason: "Se quitó del gasto",
+                createdByName: user.name,
+            });
+        }
+        if (productId && existing.productId === productId) {
+            const delta = newQty - (existing.quantity ?? 0);
+            if (delta !== 0) {
+                await applyStockMovement(tx, {
+                    tenantId,
+                    productId,
+                    type: delta > 0 ? "ENTRADA" : "SALIDA",
+                    quantity: Math.abs(delta),
+                    reason: "Ajuste al editar gasto",
+                    createdByName: user.name,
+                });
+            }
+        } else if (productId && existing.productId !== productId) {
+            await applyStockMovement(tx, { tenantId, productId, type: "ENTRADA", quantity: newQty, reason: "Compra (agregada al editar)", createdByName: user.name });
+        }
+    });
     revalidatePath(`/t/${slug}`);
 }
 
@@ -116,21 +134,21 @@ export async function exportExpensesCSV(slug, { from, to }) {
 }
 
 export async function deleteExpense(expenseId, slug) {
-    const { tenantId } = await requireTenantSession(slug, "FINANZAS", "delete");
+    const { user, tenantId } = await requireTenantSession(slug, "FINANZAS", "delete");
     const existing = await findOwnedOrThrow("expense", expenseId, tenantId, "Gasto no encontrado");
 
-    const ops = [];
-    if (existing.productId && existing.quantity) {
-        const product = await prisma.product.findFirst({ where: { id: existing.productId, tenantId } });
-        if (product) {
-            ops.push(
-                prisma.product.update({
-                    where: { id: existing.productId },
-                    data: { stock: Math.max(0, product.stock - existing.quantity) },
-                })
-            );
+    await prisma.$transaction(async (tx) => {
+        await tx.expense.deleteMany({ where: { id: expenseId, tenantId } });
+        if (existing.productId && existing.quantity) {
+            await applyStockMovement(tx, {
+                tenantId,
+                productId: existing.productId,
+                type: "SALIDA",
+                quantity: existing.quantity,
+                reason: "Gasto de compra eliminado",
+                createdByName: user.name,
+            });
         }
-    }
-    await prisma.$transaction([prisma.expense.deleteMany({ where: { id: expenseId, tenantId } }), ...ops]);
+    });
     revalidatePath(`/t/${slug}`);
 }

@@ -147,6 +147,8 @@ model Tenant {
   cashShifts       CashShift[]
   conversationStates ConversationState[]
   whatsappMessages   WhatsappMessage[]
+  inventoryMovements InventoryMovement[]
+  cashMovements      CashMovement[]
 }
 
 // Progreso de una conversación de WhatsApp en curso, para no perderlo si el proceso del
@@ -225,8 +227,33 @@ model CashShift {
   startedAt           DateTime    @default(now())
   endedAt             DateTime?
 
+  cashMovements CashMovement[]
+
   @@index([tenantId, startedAt])
   @@index([tenantId, status])
+}
+
+enum CashMovementType {
+  RETIRO
+  DEPOSITO
+}
+
+// Entrada/salida de efectivo de la caja MIENTRAS el turno sigue abierto (ej. el dueño saca
+// dinero para un pago urgente, o mete cambio) — sin esto, solo se podía saber el faltante/
+// sobrante hasta cerrar el turno, sin dejar rastro de por qué no cuadraba.
+model CashMovement {
+  id            String           @id @default(cuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashShiftId   String
+  cashShift     CashShift        @relation(fields: [cashShiftId], references: [id], onDelete: Cascade)
+  type          CashMovementType
+  amountCents   Int
+  reason        String?
+  createdByName String
+  createdAt     DateTime         @default(now())
+
+  @@index([tenantId, cashShiftId])
 }
 
 // Cliente registrado de la barbería (para no volver a escribir nombre/teléfono cada vez).
@@ -418,11 +445,37 @@ model Product {
   active             Boolean @default(true)
   sortOrder          Int     @default(0)
 
-  sales    ProductSale[]
-  expenses Expense[]
+  sales     ProductSale[]
+  expenses  Expense[]
+  movements InventoryMovement[]
 
   @@index([tenantId])
   @@index([tenantId, active])
+}
+
+enum InventoryMovementType {
+  ENTRADA
+  SALIDA
+}
+
+// Historial de movimientos de stock (entradas/salidas), separado del catálogo de
+// productos (especificaciones) — Product.stock sigue siendo el número actual "en caché"
+// para no tener que sumar todo el historial cada vez que se necesita, pero cada cambio a
+// ese número (venta, compra, ajuste manual) también queda registrado aquí para auditoría.
+model InventoryMovement {
+  id            String                @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type          InventoryMovementType
+  quantity      Int
+  reason        String?
+  createdByName String?
+  createdAt     DateTime              @default(now())
+
+  @@index([tenantId, productId, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model ProductSale {

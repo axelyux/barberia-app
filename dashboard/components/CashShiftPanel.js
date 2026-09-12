@@ -1,23 +1,99 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
 import { Field, TextInput, NumberInput } from "@/components/FormField";
 import { money, shortDateTime, contrastText } from "@/lib/format";
-import { closeShift } from "@/app/t/[slug]/shift-actions";
+import { closeShift, registerCashMovement } from "@/app/t/[slug]/shift-actions";
+import { useToast } from "@/components/Toast";
 
-export default function CashShiftPanel({ openShift, shiftHistory, slug, brandColor, canClose }) {
+const CASH_MOVEMENT_META = {
+    RETIRO: { label: "Retiro", sign: "−", color: "text-red-400" },
+    DEPOSITO: { label: "Depósito", sign: "+", color: "text-emerald-400" },
+};
+
+function CashMovementForm({ brandStyle, isPending, error, onSave, onCancel }) {
+    const [type, setType] = useState("RETIRO");
+    const [amount, setAmount] = useState("");
+    const [reason, setReason] = useState("");
+
+    return (
+        <>
+            <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        onClick={() => setType("RETIRO")}
+                        className={`flex h-11 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
+                            type === "RETIRO" ? "border-red-700/60 bg-red-500/10 text-red-400" : "border-zinc-700/80 text-zinc-400"
+                        }`}
+                    >
+                        − Sacar dinero
+                    </button>
+                    <button
+                        onClick={() => setType("DEPOSITO")}
+                        className={`flex h-11 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
+                            type === "DEPOSITO" ? "border-emerald-700/60 bg-emerald-500/10 text-emerald-400" : "border-zinc-700/80 text-zinc-400"
+                        }`}
+                    >
+                        + Meter dinero
+                    </button>
+                </div>
+                <Field label="Monto (MXN)">
+                    <NumberInput value={amount} onChange={(e) => setAmount(e.target.value)} min="0" />
+                </Field>
+                <Field label="Motivo">
+                    <TextInput value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej. Pago urgente de proveedor" />
+                </Field>
+            </div>
+            {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
+            <div className="mt-4 flex flex-col gap-2">
+                <SheetButton
+                    variant="brand"
+                    style={brandStyle}
+                    loading={isPending}
+                    disabled={!amount || !reason.trim()}
+                    onClick={() => onSave({ type, amountCents: Math.round(parseFloat(amount || "0") * 100), reason })}
+                >
+                    Registrar
+                </SheetButton>
+                <SheetButton variant="ghost" onClick={onCancel}>
+                    Cancelar
+                </SheetButton>
+            </div>
+        </>
+    );
+}
+
+export default function CashShiftPanel({ openShift, shiftHistory, cashMovements: initialCashMovements, slug, brandColor, canClose, canAddCashMovement }) {
     const [closingCash, setClosingCash] = useState("0");
     const [notes, setNotes] = useState("");
+    const [cashMovements, setCashMovements] = useState(initialCashMovements ?? []);
+    const [movementOpen, setMovementOpen] = useState(false);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
+    const showToast = useToast();
 
     const doClose = () => {
         setError("");
         startTransition(async () => {
             try {
                 await closeShift(slug, { closingCashCents: Math.round(parseFloat(closingCash || "0") * 100), notes });
+            } catch (err) {
+                setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
+            }
+        });
+    };
+
+    const saveMovement = (data) => {
+        setError("");
+        startTransition(async () => {
+            try {
+                await registerCashMovement(slug, data);
+                setCashMovements((prev) => [{ ...data, id: `tmp-${Date.now()}`, createdAt: new Date().toISOString() }, ...prev]);
+                setMovementOpen(false);
+                showToast(data.type === "RETIRO" ? "✅ Salida de efectivo registrada" : "✅ Entrada de efectivo registrada");
             } catch (err) {
                 setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
@@ -40,6 +116,35 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
                     <span>Fondo inicial (efectivo)</span>
                     <b className="font-numeric text-zinc-200">{money(openShift.openingCashCents)}</b>
                 </div>
+
+                {canAddCashMovement ? (
+                    <button
+                        onClick={() => {
+                            setError("");
+                            setMovementOpen(true);
+                        }}
+                        className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-white/10 text-xs font-bold text-zinc-300 hover:bg-white/5"
+                    >
+                        💵 Sacar / meter dinero de la caja
+                    </button>
+                ) : null}
+
+                {cashMovements.length > 0 ? (
+                    <div className="mt-3 flex flex-col gap-1.5 border-t border-white/10 pt-3">
+                        {cashMovements.map((m) => {
+                            const meta = CASH_MOVEMENT_META[m.type];
+                            return (
+                                <div key={m.id} className="flex items-center justify-between text-xs">
+                                    <span className="truncate text-zinc-400">{m.reason || meta.label}</span>
+                                    <span className={`font-numeric shrink-0 font-bold ${meta.color}`}>
+                                        {meta.sign}
+                                        {money(m.amountCents)}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : null}
             </div>
 
             {canClose ? (
@@ -98,6 +203,20 @@ export default function CashShiftPanel({ openShift, shiftHistory, slug, brandCol
                     </div>
                 ) : null}
             </div>
+
+            {canAddCashMovement ? (
+                <BottomSheet open={movementOpen} onClose={() => setMovementOpen(false)} title="Sacar / meter dinero">
+                    {movementOpen ? (
+                        <CashMovementForm
+                            brandStyle={brandStyle}
+                            isPending={isPending}
+                            error={error}
+                            onCancel={() => setMovementOpen(false)}
+                            onSave={saveMovement}
+                        />
+                    ) : null}
+                </BottomSheet>
+            ) : null}
         </div>
     );
 }

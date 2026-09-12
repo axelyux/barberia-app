@@ -295,13 +295,21 @@ function EditExpenseForm({ expense, products, brandStyle, isPending, error, canE
     );
 }
 
-export default function ExpenseList({ expenses: initialExpenses, products = [], slug, brandColor, perms }) {
+export default function ExpenseList({ expenses: initialExpenses, products = [], slug, brandColor, perms, openCreateSignal }) {
     const [expenses, setExpenses] = useState(initialExpenses);
     const [visibleCount, setVisibleCount] = useState(20);
     const [fromDate, setFromDate] = useState(startOf30DaysAgo);
     const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
     const [createOpen, setCreateOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    // Deja que un botón/atajo de OTRA parte de la pantalla (fuera de este componente) abra
+    // el formulario de "nuevo gasto" — se compara contra el valor anterior durante el
+    // render en vez de un useEffect, para no disparar un setState dentro de un efecto.
+    const [seenCreateSignal, setSeenCreateSignal] = useState(openCreateSignal);
+    if (openCreateSignal !== seenCreateSignal) {
+        setSeenCreateSignal(openCreateSignal);
+        if (openCreateSignal && perms.canAdd) setCreateOpen(true);
+    }
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
     const editing = expenses.find((e) => e.id === editingId) ?? null;

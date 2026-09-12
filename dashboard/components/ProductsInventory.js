@@ -3,29 +3,72 @@
 import { useState, useTransition } from "react";
 import BottomSheet from "@/components/BottomSheet";
 import SheetButton from "@/components/SheetButton";
-import { Field, TextInput, NumberInput } from "@/components/FormField";
-import { money, contrastText } from "@/lib/format";
-import { createProduct, updateProduct, deleteProduct, adjustProductStock } from "@/app/t/[slug]/catalog-actions";
+import { Field, NumberInput, TextInput } from "@/components/FormField";
+import { contrastText } from "@/lib/format";
+import { useToast } from "@/components/Toast";
+import { registerManualMovement, getInventoryMovements } from "@/app/t/[slug]/inventory-actions";
 
-const emptyForm = { name: "", price: "", stock: "0", lowStockThreshold: "3" };
+const TYPE_META = {
+    ENTRADA: { label: "Entrada", sign: "+", color: "text-emerald-400" },
+    SALIDA: { label: "Salida", sign: "−", color: "text-red-400" },
+};
 
-function CreateProductForm({ brandStyle, isPending, error, onSave, onCancel }) {
-    const [form, setForm] = useState(emptyForm);
+function formatWhen(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString("es-MX", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+
+function MovementForm({ products, brandStyle, isPending, error, onSave, onCancel }) {
+    const [productId, setProductId] = useState(products[0]?.id ?? "");
+    const [type, setType] = useState("ENTRADA");
+    const [quantity, setQuantity] = useState("1");
+    const [reason, setReason] = useState("");
 
     return (
         <>
             <div className="flex flex-col gap-3">
-                <Field label="Nombre">
-                    <TextInput value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ej. Cera moldeadora" />
+                <Field label="Producto">
+                    <select
+                        value={productId}
+                        onChange={(e) => setProductId(e.target.value)}
+                        className="min-h-11 w-full rounded-lg border border-zinc-700/80 bg-zinc-800/50 px-3.5 text-[15px] text-zinc-50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.25)] transition-colors focus:border-amber-500/70 focus:bg-zinc-800/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+                    >
+                        {products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.name} (stock actual: {p.stock})
+                            </option>
+                        ))}
+                    </select>
                 </Field>
-                <Field label="Precio (MXN)">
-                    <NumberInput value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} min="0" />
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        onClick={() => setType("ENTRADA")}
+                        className={`flex h-11 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
+                            type === "ENTRADA" ? "border-emerald-700/60 bg-emerald-500/10 text-emerald-400" : "border-zinc-700/80 text-zinc-400"
+                        }`}
+                    >
+                        + Entrada
+                    </button>
+                    <button
+                        onClick={() => setType("SALIDA")}
+                        className={`flex h-11 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${
+                            type === "SALIDA" ? "border-red-700/60 bg-red-500/10 text-red-400" : "border-zinc-700/80 text-zinc-400"
+                        }`}
+                    >
+                        − Salida
+                    </button>
+                </div>
+                <Field label="Cantidad">
+                    <NumberInput
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value.replace(/[^0-9]/g, ""))}
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                    />
                 </Field>
-                <Field label="Stock inicial (piezas)">
-                    <NumberInput value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} min="0" />
-                </Field>
-                <Field label="Aviso de stock bajo (piezas)">
-                    <NumberInput value={form.lowStockThreshold} onChange={(e) => setForm((f) => ({ ...f, lowStockThreshold: e.target.value }))} min="0" />
+                <Field label="Motivo (opcional)">
+                    <TextInput value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej. Conteo físico, producto dañado" />
                 </Field>
             </div>
             {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
@@ -34,16 +77,10 @@ function CreateProductForm({ brandStyle, isPending, error, onSave, onCancel }) {
                     variant="brand"
                     style={brandStyle}
                     loading={isPending}
-                    onClick={() =>
-                        onSave({
-                            name: form.name,
-                            priceCents: Math.round(parseFloat(form.price || "0") * 100),
-                            stock: parseFloat(form.stock || "0"),
-                            lowStockThreshold: parseFloat(form.lowStockThreshold || "3"),
-                        })
-                    }
+                    disabled={!productId}
+                    onClick={() => onSave({ productId, type, quantity: parseInt(quantity || "1", 10), reason })}
                 >
-                    Guardar
+                    Registrar movimiento
                 </SheetButton>
                 <SheetButton variant="ghost" onClick={onCancel}>
                     Cancelar
@@ -53,105 +90,35 @@ function CreateProductForm({ brandStyle, isPending, error, onSave, onCancel }) {
     );
 }
 
-function EditProductForm({ product, brandStyle, isPending, error, canEdit, canDelete, onSave, onDelete }) {
-    const [name, setName] = useState(product.name);
-    const [price, setPrice] = useState(String(product.priceCents / 100));
-    const [stock, setStock] = useState(String(product.stock));
-    const [threshold, setThreshold] = useState(String(product.lowStockThreshold));
-    const [active, setActive] = useState(product.active);
-
-    return (
-        <>
-            <div className="flex flex-col gap-3">
-                <Field label="Nombre">
-                    <TextInput disabled={!canEdit} value={name} onChange={(e) => setName(e.target.value)} />
-                </Field>
-                <Field label="Precio (MXN)">
-                    <NumberInput disabled={!canEdit} value={price} onChange={(e) => setPrice(e.target.value)} min="0" />
-                </Field>
-                <Field label="Stock (piezas)">
-                    <NumberInput disabled={!canEdit} value={stock} onChange={(e) => setStock(e.target.value)} min="0" />
-                </Field>
-                <Field label="Aviso de stock bajo (piezas)">
-                    <NumberInput disabled={!canEdit} value={threshold} onChange={(e) => setThreshold(e.target.value)} min="0" />
-                </Field>
-                <label className="flex items-center gap-2 text-sm text-zinc-300">
-                    <input
-                        type="checkbox"
-                        disabled={!canEdit}
-                        checked={active}
-                        onChange={(e) => setActive(e.target.checked)}
-                        className="h-4 w-4 rounded-sm border-zinc-600 bg-zinc-800"
-                    />
-                    Visible para los clientes
-                </label>
-            </div>
-            {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
-            {canEdit || canDelete ? (
-                <div className="mt-4 flex flex-col gap-2">
-                    {canEdit ? (
-                        <SheetButton
-                            variant="brand"
-                            style={brandStyle}
-                            loading={isPending}
-                            onClick={() =>
-                                onSave({
-                                    name,
-                                    priceCents: Math.round(parseFloat(price || "0") * 100),
-                                    stock: parseFloat(stock || "0"),
-                                    lowStockThreshold: parseFloat(threshold || "3"),
-                                    active,
-                                })
-                            }
-                        >
-                            Guardar cambios
-                        </SheetButton>
-                    ) : null}
-                    {canDelete ? (
-                        <SheetButton variant="danger" loading={isPending} onClick={onDelete}>
-                            Eliminar
-                        </SheetButton>
-                    ) : null}
-                </div>
-            ) : null}
-        </>
-    );
-}
-
-const PAGE_SIZE = 5;
-
-export default function ProductsInventory({ products, slug, brandColor, perms }) {
+export default function ProductsInventory({ products, initialMovements, slug, brandColor, perms }) {
+    const [movements, setMovements] = useState(initialMovements);
+    const [visibleCount, setVisibleCount] = useState(20);
     const [createOpen, setCreateOpen] = useState(false);
-    const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
-    const [page, setPage] = useState(0);
-    const editing = products.find((p) => p.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
-
-    const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
-    const currentPage = Math.min(page, totalPages - 1);
-    const pageItems = products.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+    const showToast = useToast();
 
     const run = (fn, onDone) => {
         setError("");
         startTransition(async () => {
             try {
                 await fn();
+                setMovements(await getInventoryMovements(slug));
+                setVisibleCount(20);
                 onDone?.();
+                showToast("✅ Movimiento registrado");
             } catch (err) {
                 setError(err?.message ?? "⚠️ Algo salió mal, intenta de nuevo.");
             }
         });
     };
 
-    const bump = (productId, delta) => run(() => adjustProductStock(productId, slug, delta));
-
     return (
         <div>
             <div className="mb-2 flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">Inventario</p>
-                {perms.canAdd ? (
+                {perms.canEdit && products.length > 0 ? (
                     <button
                         onClick={() => {
                             setError("");
@@ -160,118 +127,83 @@ export default function ProductsInventory({ products, slug, brandColor, perms })
                         style={brandStyle}
                         className="flex h-8 items-center gap-1 rounded-md px-3 text-xs font-bold"
                     >
-                        + Agregar
+                        + Movimiento
                     </button>
                 ) : null}
             </div>
-            {error ? <p className="mb-2 text-sm text-red-400">{error}</p> : null}
 
-            <div className="grid grid-cols-2 gap-2.5">
-                {pageItems.map((p) => {
+            {/* Stock actual de cada producto — de un vistazo, sin entrar a cada uno */}
+            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {products.map((p) => {
                     const lowStock = p.stock <= p.lowStockThreshold;
                     return (
-                        <div key={p.id} className="rounded-xl border border-white/10 bg-zinc-900 p-3 shadow-[var(--shadow-panel)]">
-                            <button
-                                onClick={() => {
-                                    setError("");
-                                    setEditingId(p.id);
-                                }}
-                                className="block w-full text-left"
-                            >
-                                <p className={`truncate text-sm font-bold ${p.active ? "text-zinc-50" : "text-zinc-500 line-through"}`}>{p.name}</p>
-                                {lowStock ? (
-                                    <span className="mt-0.5 inline-block rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-400">
-                                        stock bajo
-                                    </span>
-                                ) : null}
-                                <p className="mt-0.5 text-xs text-zinc-400">{money(p.priceCents)}</p>
-                            </button>
-                            <div className="mt-2 flex items-center justify-between">
-                                {perms.canEdit ? (
-                                    <button
-                                        onClick={() => bump(p.id, -1)}
-                                        disabled={isPending || p.stock <= 0}
-                                        className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-700 text-zinc-300 disabled:opacity-30"
-                                    >
-                                        −
-                                    </button>
-                                ) : (
-                                    <span />
-                                )}
-                                <span className={`font-numeric text-sm font-bold ${lowStock ? "text-red-400" : "text-zinc-100"}`}>{p.stock}</span>
-                                {perms.canEdit ? (
-                                    <button
-                                        onClick={() => bump(p.id, 1)}
-                                        disabled={isPending}
-                                        className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-700 text-zinc-300 disabled:opacity-30"
-                                    >
-                                        +
-                                    </button>
-                                ) : (
-                                    <span />
-                                )}
-                            </div>
+                        <div key={p.id} className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-2">
+                            <p className={`truncate text-xs font-semibold ${p.active ? "text-zinc-300" : "text-zinc-600 line-through"}`}>{p.name}</p>
+                            <p className={`font-numeric text-base font-bold ${lowStock ? "text-red-400" : "text-zinc-100"}`}>
+                                {p.stock} <span className="text-[10px] font-normal text-zinc-500">pza.</span>
+                            </p>
                         </div>
                     );
                 })}
                 {products.length === 0 ? (
-                    <div className="col-span-2 rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
-                        Todavía no agregas productos.
+                    <div className="col-span-2 rounded-lg border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500 sm:col-span-3">
+                        Todavía no agregas productos (pestaña &quot;Servicios y productos&quot;).
                     </div>
                 ) : null}
             </div>
 
-            {products.length > PAGE_SIZE ? (
-                <div className="mt-2.5 flex items-center justify-center gap-3">
-                    <button
-                        onClick={() => setPage((p) => Math.max(0, p - 1))}
-                        disabled={currentPage === 0}
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-zinc-400 disabled:opacity-30"
-                    >
-                        ‹
-                    </button>
-                    <span className="text-[12px] font-semibold text-zinc-500">
-                        Página {currentPage + 1} de {totalPages}
-                    </span>
-                    <button
-                        onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                        disabled={currentPage >= totalPages - 1}
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-zinc-400 disabled:opacity-30"
-                    >
-                        ›
-                    </button>
-                </div>
+            {error ? <p className="mb-2 text-sm text-red-400">{error}</p> : null}
+
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Historial de movimientos</p>
+            <div className="rounded-xl border border-white/10 bg-zinc-900 px-3.5 shadow-[var(--shadow-panel)]">
+                {movements.slice(0, visibleCount).map((m) => {
+                    const meta = TYPE_META[m.type];
+                    return (
+                        <div key={m.id} className="flex items-center justify-between gap-2 border-b border-white/10 py-2.5 text-sm last:border-b-0">
+                            <div className="min-w-0">
+                                <p className="truncate font-semibold text-zinc-100">{m.productName}</p>
+                                <p className="truncate text-[11.5px] text-zinc-500">
+                                    {formatWhen(m.createdAt)}
+                                    {m.reason ? ` · ${m.reason}` : ""}
+                                    {m.createdByName ? ` · ${m.createdByName}` : ""}
+                                </p>
+                            </div>
+                            <span className={`font-numeric shrink-0 font-bold ${meta.color}`}>
+                                {meta.sign}
+                                {m.quantity}
+                            </span>
+                        </div>
+                    );
+                })}
+                {movements.length === 0 ? (
+                    <div className="my-3 rounded-xl border border-dashed border-white/10 bg-zinc-900/40 p-6 text-center text-sm text-zinc-500">
+                        Todavía no hay movimientos de inventario.
+                    </div>
+                ) : null}
+            </div>
+            {movements.length > visibleCount ? (
+                <button
+                    onClick={() => setVisibleCount((n) => n + 20)}
+                    className="mt-2.5 flex min-h-11 w-full items-center justify-center rounded-lg border border-white/10 bg-zinc-900 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/60"
+                >
+                    Cargar más ({movements.length - visibleCount} restantes)
+                </button>
             ) : null}
 
-            {perms.canAdd ? (
-                <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Agregar producto">
+            {perms.canEdit ? (
+                <BottomSheet open={createOpen} onClose={() => setCreateOpen(false)} title="Registrar movimiento">
                     {createOpen ? (
-                        <CreateProductForm
+                        <MovementForm
+                            products={products}
                             brandStyle={brandStyle}
                             isPending={isPending}
                             error={error}
                             onCancel={() => setCreateOpen(false)}
-                            onSave={(data) => run(() => createProduct(slug, data), () => setCreateOpen(false))}
+                            onSave={(data) => run(() => registerManualMovement(slug, data), () => setCreateOpen(false))}
                         />
                     ) : null}
                 </BottomSheet>
             ) : null}
-
-            <BottomSheet open={!!editing} onClose={() => setEditingId(null)} title={editing?.name}>
-                {editing ? (
-                    <EditProductForm
-                        key={editing.id}
-                        product={editing}
-                        brandStyle={brandStyle}
-                        isPending={isPending}
-                        error={error}
-                        canEdit={perms.canEdit}
-                        canDelete={perms.canDelete}
-                        onSave={(data) => run(() => updateProduct(editing.id, slug, data))}
-                        onDelete={() => run(() => deleteProduct(editing.id, slug), () => setEditingId(null))}
-                    />
-                ) : null}
-            </BottomSheet>
         </div>
     );
 }

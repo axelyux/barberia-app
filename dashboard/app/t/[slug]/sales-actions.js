@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireTenantSession } from "@/lib/auth";
 import { toCSV } from "@/lib/csv";
 import { findOwnedOrThrow } from "@/lib/tenant-guard";
+import { applyStockMovement } from "@/app/t/[slug]/inventory-actions";
 
 const plainBarber = (b) => (b ? { ...b, createdAt: b.createdAt.toISOString() } : null);
 const plainCustomer = (c) => (c ? { ...c, createdAt: c.createdAt.toISOString() } : null);
@@ -28,7 +29,7 @@ export async function registerProductSale(
     slug,
     { productId, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
-    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "add");
+    const { user, tenantId } = await requireTenantSession(slug, "PRODUCTOS", "add");
     const product = await findOwnedOrThrow("product", productId, tenantId, "Producto no encontrado");
 
     const qty = Math.max(1, Math.round(quantity) || 1);
@@ -57,10 +58,10 @@ export async function registerProductSale(
     };
     if (createdAt) saleData.createdAt = new Date(createdAt);
 
-    await prisma.$transaction([
-        prisma.productSale.create({ data: saleData }),
-        prisma.product.update({ where: { id: productId }, data: { stock: { decrement: qty } } }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+        await tx.productSale.create({ data: saleData });
+        await applyStockMovement(tx, { tenantId, productId, type: "SALIDA", quantity: qty, reason: "Venta", createdByName: user.name });
+    });
     revalidatePath(`/t/${slug}`);
 }
 
@@ -69,7 +70,7 @@ export async function updateProductSale(
     slug,
     { name, barberId, customerId, paymentMethod, paymentStatus, amountPaidCents, quantity, discountCents, tipCents, notes, createdAt }
 ) {
-    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "edit");
+    const { user, tenantId } = await requireTenantSession(slug, "PRODUCTOS", "edit");
     if (!name?.trim()) throw new Error("El nombre del producto es obligatorio");
 
     const existing = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
@@ -100,26 +101,41 @@ export async function updateProductSale(
     };
     if (createdAt) data.createdAt = new Date(createdAt);
 
-    const stockOps = [];
-    if (existing.productId) {
-        const delta = qty - existing.quantity;
-        if (delta !== 0) stockOps.push(prisma.product.update({ where: { id: existing.productId }, data: { stock: { decrement: delta } } }));
-    }
+    const delta = qty - existing.quantity;
 
-    await prisma.$transaction([prisma.productSale.updateMany({ where: { id: saleId, tenantId }, data }), ...stockOps]);
+    await prisma.$transaction(async (tx) => {
+        await tx.productSale.updateMany({ where: { id: saleId, tenantId }, data });
+        if (delta !== 0) {
+            await applyStockMovement(tx, {
+                tenantId,
+                productId: existing.productId,
+                type: delta > 0 ? "SALIDA" : "ENTRADA",
+                quantity: Math.abs(delta),
+                reason: "Ajuste al editar venta",
+                createdByName: user.name,
+            });
+        }
+    });
     revalidatePath(`/t/${slug}`);
 }
 
 export async function deleteProductSale(saleId, slug) {
-    const { tenantId } = await requireTenantSession(slug, "PRODUCTOS", "delete");
+    const { user, tenantId } = await requireTenantSession(slug, "PRODUCTOS", "delete");
     const sale = await findOwnedOrThrow("productSale", saleId, tenantId, "Venta no encontrada");
 
-    await prisma.$transaction([
-        prisma.productSale.deleteMany({ where: { id: saleId, tenantId } }),
-        ...(sale.productId
-            ? [prisma.product.update({ where: { id: sale.productId }, data: { stock: { increment: sale.quantity } } })]
-            : []),
-    ]);
+    await prisma.$transaction(async (tx) => {
+        await tx.productSale.deleteMany({ where: { id: saleId, tenantId } });
+        if (sale.productId) {
+            await applyStockMovement(tx, {
+                tenantId,
+                productId: sale.productId,
+                type: "ENTRADA",
+                quantity: sale.quantity,
+                reason: "Venta eliminada",
+                createdByName: user.name,
+            });
+        }
+    });
     revalidatePath(`/t/${slug}`);
 }
 
