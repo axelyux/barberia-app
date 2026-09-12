@@ -22,14 +22,26 @@ import {
 
 const emptyForm = { customerName: "", customerPhone: "", serviceId: "", barberId: "", time: "09:00" };
 
-const toISODate = (d) => {
+// El día se manda como fecha de calendario ("2026-09-12"), no como instante ISO. Antes se
+// mandaba la medianoche local convertida a UTC, y el servidor la volvía a interpretar en SU
+// zona horaria: si el celular y el servidor no coincidían en el día, la cita se agendaba
+// para el día anterior y se rechazaba por "ya pasó". Una fecha sin hora no tiene ese
+// problema: significa lo mismo en los dos lados.
+const toDateKey = (d) => {
     const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x.toISOString();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+};
+
+// "2026-09-12" se parsea como medianoche UTC; hay que armar la fecha con sus componentes
+// para que el navegador la muestre como ese día y no como el anterior.
+const fromDateKey = (key) => {
+    const [y, m, d] = String(key).split("-").map((n) => parseInt(n, 10));
+    return new Date(y, m - 1, d);
 };
 
 const dateLabel = (dateISO) => {
-    const d = new Date(dateISO);
+    const d = fromDateKey(dateISO);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffDays = Math.round((d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
@@ -114,7 +126,7 @@ function CreateBookingForm({ services, barbers, brandStyle, isPending, error, on
 }
 
 export default function BookingsPanel({ initialBookings, services, barbers, activeMethods = [], slug, brandColor, perms, openCreateSignal }) {
-    const [dateISO, setDateISO] = useState(toISODate(new Date()));
+    const [dateISO, setDateISO] = useState(() => toDateKey(new Date()));
     const [bookings, setBookings] = useState(initialBookings);
     const [createOpen, setCreateOpen] = useState(false);
 
@@ -148,7 +160,11 @@ export default function BookingsPanel({ initialBookings, services, barbers, acti
             setBookings(rows);
         });
     };
-    const shiftDay = (delta) => goToDate(new Date(new Date(dateISO).getTime() + delta * 24 * 60 * 60 * 1000).toISOString());
+    const shiftDay = (delta) => {
+        const d = fromDateKey(dateISO);
+        d.setDate(d.getDate() + delta);
+        goToDate(toDateKey(d));
+    };
 
     const openDetail = (b) => {
         setError("");

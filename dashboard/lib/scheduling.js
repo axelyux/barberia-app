@@ -118,6 +118,10 @@ export function buildAvailableSlots(dayStart, durationMin, existingBookings, day
 export const formatTime12h = (date) =>
     new Date(date).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true }).replace(/^0/, "");
 
+// Sin año y sin zona horaria explícita a propósito: estas fechas ya vienen en el mismo
+// marco que scheduledAt (ver zonedNow), así que se leen tal cual.
+export const formatDayMonth = (date) => new Date(date).toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+
 // Punto único de validación de disponibilidad, usado tanto por el panel (createBooking/
 // updateBooking en dashboard/app/t/[slug]/actions.js) como por el bot de WhatsApp
 // (whatsapp-meta-bot.js), para que agendar desde cualquiera de los dos lados respete
@@ -157,10 +161,27 @@ export async function validateBookingAvailability({
     const hours = dayHours ?? FALLBACK_HOURS;
 
     if (!meetsMinimumNotice(scheduledAt, minNoticeMin)) {
-        return { ok: false, error: "Esa hora ya pasó o es demasiado pronto.", alternatives: [] };
+        // Se dice QUÉ entendió el sistema, no solo que no se puede: si la fecha/hora que
+        // leyó no es la que el usuario eligió (por diferencias de zona horaria entre el
+        // celular y el servidor), el desfase se ve de inmediato en el propio mensaje.
+        const ahora = zonedNow();
+        const cuando = `${formatDayMonth(scheduledAt)} a las ${formatTime12h(scheduledAt)}`;
+        const margen = minNoticeMin > 0 ? ` Hay que agendar con al menos ${minNoticeMin} minutos de anticipación.` : "";
+        return {
+            ok: false,
+            error: `Estás agendando para el ${cuando}, y ahora son las ${formatTime12h(ahora)} del ${formatDayMonth(ahora)}.${margen}`,
+            alternatives: [],
+        };
     }
     if (!isWithinBusinessHours(scheduledAt, durationMin, hours)) {
-        return { ok: false, error: "Esa hora está fuera del horario de atención.", alternatives: [] };
+        const horario = hours.isClosed
+            ? "Ese día la barbería está cerrada."
+            : `Ese día se atiende de ${formatMinutesLabel(hours.openMin)} a ${formatMinutesLabel(hours.closeMin)}.`;
+        return {
+            ok: false,
+            error: `Las ${formatTime12h(scheduledAt)} quedan fuera del horario de atención. ${horario}`,
+            alternatives: [],
+        };
     }
     const conflict = findConflict(scheduledAt, durationMin, existing, excludeBookingId, barberId);
     if (conflict) {
