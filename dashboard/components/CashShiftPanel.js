@@ -77,8 +77,6 @@ export default function CashShiftPanel({
     canClose,
     canAddCashMovement,
 }) {
-    const [closingCash, setClosingCash] = useState(String(expectedCashCents / 100));
-    const [closingCashTouched, setClosingCashTouched] = useState(false);
     const [notes, setNotes] = useState("");
     const [cashMovements, setCashMovements] = useState(initialCashMovements ?? []);
     const [movementOpen, setMovementOpen] = useState(false);
@@ -89,23 +87,11 @@ export default function CashShiftPanel({
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
     const showToast = useToast();
 
-    // El campo arranca siempre mostrando lo que el sistema calcula que debería haber
-    // (fondo inicial + ventas en efectivo − gastos en efectivo + depósitos − retiros), para
-    // que nunca se vea en $0. Sigue siendo editable a propósito: el cajero cuenta el
-    // dinero físico y corrige aquí si no coincide — así es como "Turnos anteriores" sabe
-    // si faltó o sobró dinero. Si el cajero ya lo tocó, dejamos de pisarle su valor aunque
-    // entren más ventas mientras tiene la pantalla abierta.
-    const [seenExpected, setSeenExpected] = useState(expectedCashCents);
-    if (expectedCashCents !== seenExpected) {
-        setSeenExpected(expectedCashCents);
-        if (!closingCashTouched) setClosingCash(String(expectedCashCents / 100));
-    }
-
     const doClose = () => {
         setError("");
         startTransition(async () => {
             try {
-                await closeShift(slug, { closingCashCents: Math.round(parseFloat(closingCash || "0") * 100), notes });
+                await closeShift(slug, { closingCashCents: expectedCashCents, notes });
             } catch (err) {
                 setError(friendlyError(err));
             }
@@ -176,24 +162,16 @@ export default function CashShiftPanel({
             {canClose ? (
                 <div className="mt-3 rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-[var(--shadow-panel)]">
                     <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Cerrar turno</p>
-                    <div className="mb-3 flex justify-between text-xs text-zinc-400">
-                        <span>Efectivo esperado en caja</span>
-                        <b className="font-numeric text-zinc-200">{money(expectedCashCents)}</b>
-                    </div>
                     <div className="flex flex-col gap-3">
-                        <Field label="Efectivo contado en caja (MXN)">
-                            <NumberInput
-                                value={closingCash}
-                                onChange={(e) => {
-                                    setClosingCashTouched(true);
-                                    setClosingCash(e.target.value);
-                                }}
-                                min="0"
-                            />
-                        </Field>
-                        <p className="-mt-2 text-[11px] text-zinc-500">
-                            Ya viene con lo que el sistema calcula — ajústalo solo si al contar el dinero físico no coincide.
-                        </p>
+                        <div>
+                            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-zinc-500">Efectivo contado en caja</p>
+                            <div className="flex min-h-11 items-center rounded-lg border border-zinc-700/80 bg-zinc-800/30 px-3.5 text-[15px] font-bold text-zinc-200">
+                                {money(expectedCashCents)}
+                            </div>
+                            <p className="mt-1 text-[11px] text-zinc-500">
+                                Fondo inicial + ventas en efectivo − gastos en efectivo + depósitos − retiros. Se calcula solo.
+                            </p>
+                        </div>
                         <Field label="Notas (opcional)">
                             <TextInput value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej. Faltaron $50" />
                         </Field>
