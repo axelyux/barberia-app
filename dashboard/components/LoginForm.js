@@ -5,12 +5,14 @@ import { login, getTenantBrand } from "@/app/login/actions";
 import { Field, TextInput } from "@/components/FormField";
 import { contrastText } from "@/lib/format";
 import { getBillingNotice } from "@/lib/billing";
+import { useGlobalPending } from "@/components/GlobalLoading";
 
 const initialState = { error: null };
 const DEFAULT_BRAND = "#D9A441";
 
 export default function LoginForm({ action = login, showTenantField = true }) {
     const [state, formAction, isPending] = useActionState(action, initialState);
+    useGlobalPending(isPending);
     const [tenantPreview, setTenantPreview] = useState(null);
     const debounceRef = useRef(null);
 

@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { getConversations, getMessages, sendManualMessage, releaseToBot } from "@/app/t/[slug]/chat-actions";
@@ -44,6 +45,7 @@ export default function ChatInbox({ slug, brandColor, perms }) {
     const [error, setError] = useState("");
     const [loadingList, setLoadingList] = useState(true);
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const bottomRef = useRef(null);
 
     const loadConversations = async () => {

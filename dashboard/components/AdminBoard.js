@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useMemo, useState, useTransition } from "react";
@@ -26,6 +27,7 @@ const emptyForm = {
     brandColor: "#D9A441",
     logoUrl: "",
     nextDueDate: toDateInputValue(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+    initialPassword: "",
 };
 
 function tenantToForm(t) {
@@ -39,7 +41,7 @@ function tenantToForm(t) {
     };
 }
 
-function TenantFormFields({ form, setForm }) {
+function TenantFormFields({ form, setForm, showPassword = false }) {
     return (
         <div className="flex flex-col gap-3">
             <Field label="Nombre de la barbería">
@@ -78,6 +80,16 @@ function TenantFormFields({ form, setForm }) {
             <Field label="Color de marca">
                 <ColorPicker value={form.brandColor} onChange={(v) => setForm((f) => ({ ...f, brandColor: v }))} />
             </Field>
+            {showPassword ? (
+                <Field label="Contraseña inicial (opcional)">
+                    <TextInput
+                        value={form.initialPassword}
+                        onChange={(e) => setForm((f) => ({ ...f, initialPassword: e.target.value }))}
+                        placeholder="Déjalo en blanco para generarla automático"
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-500">Mínimo 6 caracteres. Usuario: admin</p>
+                </Field>
+            ) : null}
         </div>
     );
 }
@@ -92,6 +104,7 @@ function WhatsappLinkForm({ tenant }) {
     const [error, setError] = useState("");
     const [savedAt, setSavedAt] = useState(null);
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const save = () => {
         setError("");
@@ -139,6 +152,7 @@ function DeleteTenantForm({ tenant, onDeleted }) {
     const [confirmText, setConfirmText] = useState("");
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const matches = confirmText.trim() === tenant.name;
 
@@ -237,6 +251,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
     const [error, setError] = useState("");
     const [newCredentials, setNewCredentials] = useState(null);
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const counts = useMemo(() => {
         const c = { all: tenants.length, good: 0, warn: 0, bad: 0 };
@@ -433,7 +448,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                 title="Nueva barbería"
                 subtitle="Se crea como 'pendiente de vincular' hasta que conectes su WhatsApp"
             >
-                <TenantFormFields form={createForm} setForm={setCreateForm} />
+                <TenantFormFields form={createForm} setForm={setCreateForm} showPassword />
                 {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
                 <div className="mt-4 flex flex-col gap-2">
                     <SheetButton
@@ -449,6 +464,7 @@ export default function AdminBoard({ tenants, monthlyRevenueCents, adminName }) 
                                         brandColor: createForm.brandColor,
                                         logoUrl: createForm.logoUrl,
                                         nextDueDate: createForm.nextDueDate || null,
+                                        initialPassword: createForm.initialPassword,
                                     }),
                                 { onSuccess: (result) => result && setNewCredentials(result) }
                             )

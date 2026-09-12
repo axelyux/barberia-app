@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -13,6 +14,7 @@ export default function BrandingEditor({ tenant, perms }) {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const save = () => {
         setError("");

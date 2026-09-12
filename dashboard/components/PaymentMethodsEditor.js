@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -10,6 +11,7 @@ export default function PaymentMethodsEditor({ initialStatus, slug, perms }) {
     const [status, setStatus] = useState(initialStatus);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const showToast = useToast();
 
     const toggle = (method, active) => {
@@ -41,27 +43,19 @@ export default function PaymentMethodsEditor({ initialStatus, slug, perms }) {
                     {status.map((s) => {
                         const isCash = s.method === "EFECTIVO";
                         return (
-                            <div key={s.method} className="flex items-center justify-between py-2.5">
+                            <label key={s.method} className="flex items-center justify-between gap-3 py-2.5">
                                 <span className={`text-[13.5px] ${s.active ? "text-zinc-100" : "text-zinc-500"}`}>
                                     {PAYMENT_METHOD_LABELS[s.method]}
                                     {isCash ? <span className="ml-1.5 text-[10px] font-bold uppercase text-zinc-600">fijo</span> : null}
                                 </span>
-                                <button
-                                    role="switch"
-                                    aria-checked={s.active}
+                                <input
+                                    type="checkbox"
+                                    checked={s.active}
                                     disabled={!perms.canEdit || isCash || isPending}
-                                    onClick={() => toggle(s.method, !s.active)}
-                                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed ${
-                                        s.active ? "bg-emerald-600" : "bg-zinc-700"
-                                    } ${isCash ? "opacity-50" : ""}`}
-                                >
-                                    <span
-                                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                                            s.active ? "translate-x-[22px]" : "translate-x-0.5"
-                                        }`}
-                                    />
-                                </button>
-                            </div>
+                                    onChange={(e) => toggle(s.method, e.target.checked)}
+                                    className="h-5 w-5 shrink-0 rounded-sm border-zinc-600 bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                />
+                            </label>
                         );
                     })}
                 </div>

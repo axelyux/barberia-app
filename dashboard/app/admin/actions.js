@@ -39,12 +39,15 @@ function parseDueDate(nextDueDate) {
     return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 }
 
-export async function createTenant({ name, ownerName, planPriceCents, brandColor, logoUrl, nextDueDate }) {
+export async function createTenant({ name, ownerName, planPriceCents, brandColor, logoUrl, nextDueDate, initialPassword }) {
     await requireSuperAdmin();
     if (!name?.trim()) throw new Error("El nombre de la barbería es obligatorio");
+    if (initialPassword?.trim() && initialPassword.trim().length < 6) {
+        throw new Error("La contraseña debe tener al menos 6 caracteres");
+    }
 
     const slug = await uniqueSlug(name);
-    const tempPassword = generateTempPassword();
+    const tempPassword = initialPassword?.trim() || generateTempPassword();
 
     const tenant = await prisma.tenant.create({
         data: {

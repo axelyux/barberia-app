@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -133,6 +134,7 @@ export default function CatalogList({ title, emptyLabel, items, slug, brandColor
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const editing = items.find((i) => i.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };

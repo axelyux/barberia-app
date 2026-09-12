@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -314,6 +315,7 @@ export default function ExpenseList({ expenses: initialExpenses, products = [], 
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const editing = expenses.find((e) => e.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
     const showToast = useToast();

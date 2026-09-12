@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -135,6 +136,7 @@ export default function BookingsPanel({ initialBookings, services, barbers, acti
     const [amountPaid, setAmountPaid] = useState("0");
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
     const selected = bookings.find((b) => b.id === selectedId) ?? null;
 

@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -97,6 +98,7 @@ export default function ProductsInventory({ products, initialMovements, slug, br
     const [createOpen, setCreateOpen] = useState(false);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
     const showToast = useToast();
 

@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useEffect, useState, useTransition } from "react";
@@ -217,6 +218,7 @@ export default function CustomersEditor({ customers: initialCustomers, barbers =
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const editing = customers.find((c) => c.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
 

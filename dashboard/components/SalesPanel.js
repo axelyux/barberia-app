@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -397,6 +398,7 @@ export default function SalesPanel({ products, services, sales: initialSales, ba
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const activeProducts = products.filter((p) => p.active);
     const activeServices = services.filter((s) => s.active);

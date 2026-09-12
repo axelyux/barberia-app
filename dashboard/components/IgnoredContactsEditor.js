@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -14,6 +15,7 @@ export default function IgnoredContactsEditor({ contacts, slug, brandColor, perm
     const [label, setLabel] = useState("");
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
 
     const submit = () => {

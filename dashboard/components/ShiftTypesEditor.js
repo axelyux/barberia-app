@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -72,6 +73,7 @@ export default function ShiftTypesEditor({ shiftTypes, slug, brandColor, perms }
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
     const editing = shiftTypes.find((t) => t.id === editingId) ?? null;
     const brandStyle = { background: brandColor, color: contrastText(brandColor) };
 

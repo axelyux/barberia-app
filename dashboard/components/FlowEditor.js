@@ -1,4 +1,5 @@
 "use client";
+import { useGlobalPending } from "@/components/GlobalLoading";
 import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
@@ -38,6 +39,7 @@ export default function FlowEditor({ initialMessages, brandColor, slug, perms })
     const [error, setError] = useState("");
     const [savedAt, setSavedAt] = useState(null);
     const [isPending, startTransition] = useTransition();
+    useGlobalPending(isPending);
 
     const setText = (key, text) => setMessages((m) => ({ ...m, [key]: text }));
 
