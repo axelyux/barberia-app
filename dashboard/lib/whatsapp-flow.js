@@ -6,7 +6,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { sendText as sendTextRaw, sendButtons as sendButtonsRaw, sendList as sendListRaw } from "@/lib/whatsapp-graph";
-import { notifyHumanRequested } from "@/lib/push";
+import { notifyHumanRequested, notifyBookingCancelled } from "@/lib/push";
 import {
     validateBookingAvailability,
     buildAvailableSlots,
@@ -491,23 +491,137 @@ async function finalizeBooking(tenant, from, data, pushName) {
     const confirmText = await getFlowMessage(tenant.id, "BOOKING_CONFIRMED", "Te esperamos.");
     const serviceLine = serviceName ? `💈 Servicio: ${serviceName} — ${centsToText(priceCents)}` : null;
     const barberLine = assignedBarberName ? `✂️ Barbero: ${assignedBarberName}` : null;
-    await sendText(
+    // Se manda con botón, no como texto: la confirmación sale justo después de que el
+    // cliente escribió, así que la ventana de 24 h está abierta y Meta permite botones sin
+    // plantilla. El botón sigue siendo tocable días después, y ese toque cuenta como
+    // mensaje del cliente — reabre la ventana y el bot puede contestarle.
+    await sendButtons(
         tenant,
         from,
         [
             "✅ *¡Cita confirmada!*",
             "",
-            `📅 Día: ${when.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}`,
+            `📅 Día: ${when.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}`,
             `🕒 Hora: ${formatTime12h(when)}`,
             ...(serviceLine ? [serviceLine] : []),
             ...(barberLine ? [barberLine] : []),
             "",
             confirmText,
-        ].join("\n")
+            "",
+            "Si no vas a poder venir, avísanos con el botón de abajo.",
+        ].join("\n"),
+        [{ body: BTN_CANCELAR }]
     );
 }
 
 // --- Flujos de entrada libre (sin captura activa) ---
+
+// --- Cancelación de cita por el propio cliente ---
+//
+// Un cliente que no puede venir tiene que poder avisar. Si no encuentra cómo, simplemente
+// no llega: el barbero pierde el cliente Y la hora, que es peor que una cancelación con
+// aviso (esa sí libera el espacio para alguien más, porque la disponibilidad ya ignora las
+// citas canceladas).
+//
+// Solo puede cancelar SUS citas: se buscan por el teléfono desde el que escribe, así que no
+// hay forma de cancelar la de otra persona.
+const BTN_CANCELAR = "Cancelar cita";
+const BTN_SI_CANCELAR = "Sí, cancelar";
+const BTN_NO_CANCELAR = "No, mantenerla";
+const CANCEL_KEYWORDS = ["cancelar", "cancela", "cancelacion", "ya no puedo", "no voy a poder", "no podre ir", "no voy a ir"];
+
+// Citas futuras y todavía vigentes de ese teléfono.
+async function upcomingBookingsFor(tenantId, phone, timeZone) {
+    return prisma.booking.findMany({
+        where: { tenantId, customerPhone: phone, status: "PENDING", scheduledAt: { gte: zonedNow(timeZone) } },
+        include: { service: true },
+        orderBy: { scheduledAt: "asc" },
+        take: 5,
+    });
+}
+
+const bookingLabel = (b) =>
+    `${b.scheduledAt.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })} a las ${formatTime12h(b.scheduledAt)}`;
+
+async function startCancelFlow(tenant, from) {
+    const bookings = await upcomingBookingsFor(tenant.id, from, tenant.timeZone);
+
+    if (bookings.length === 0) {
+        await sendText(tenant, from, "No encontré ninguna cita próxima a tu nombre. Si crees que es un error, escribe *hablar con alguien*.");
+        return;
+    }
+
+    if (bookings.length === 1) {
+        const b = bookings[0];
+        await setStep(tenant.id, from, "confirm_cancel", { bookingId: b.id });
+        await sendButtons(tenant, from, `¿Quieres cancelar tu cita del ${bookingLabel(b)}?`, [
+            { body: BTN_SI_CANCELAR },
+            { body: BTN_NO_CANCELAR },
+        ]);
+        return;
+    }
+
+    // Con varias citas se listan para que elija cuál, en vez de adivinar.
+    await setStep(tenant.id, from, "confirm_cancel", { options: bookings.map((b) => b.id) });
+    await sendList(tenant, from, {
+        body: "Tienes varias citas. ¿Cuál quieres cancelar?",
+        buttonLabel: "Ver mis citas",
+        sections: [
+            {
+                title: "Tus citas",
+                rows: bookings.map((b, i) => ({ id: `cancel_${b.id}`, title: `${i + 1}. ${formatTime12h(b.scheduledAt)}`, description: bookingLabel(b) })),
+            },
+        ],
+    });
+}
+
+async function handleCancelConfirm(tenant, from, body, data) {
+    const texto = stripAccents(body);
+
+    if (matchesAny(texto, ["no", "no mantenerla", "mantenerla", "mejor no"])) {
+        await clearStep(tenant.id, from);
+        await sendText(tenant, from, "Perfecto, tu cita sigue en pie. ¡Te esperamos!");
+        return;
+    }
+
+    // Con varias citas, el id viene del renglón que eligió en la lista.
+    let bookingId = data?.bookingId ?? null;
+    if (!bookingId && Array.isArray(data?.options)) {
+        const elegido = data.options.find((id) => body?.includes(id));
+        if (!elegido) {
+            await sendText(tenant, from, "No entendí cuál. Elige una de la lista, o escribe *hablar con alguien*.");
+            return;
+        }
+        bookingId = elegido;
+    }
+    if (!bookingId) {
+        await clearStep(tenant.id, from);
+        return startCancelFlow(tenant, from);
+    }
+
+    // Se vuelve a validar que la cita siga siendo de ESTE teléfono y siga vigente: entre que
+    // se mandó el botón y se picó pudieron pasar días, y la barbería pudo cancelarla o
+    // completarla desde el panel.
+    const booking = await prisma.booking.findFirst({
+        where: { id: bookingId, tenantId: tenant.id, customerPhone: from, status: "PENDING" },
+        include: { service: true },
+    });
+    await clearStep(tenant.id, from);
+
+    if (!booking) {
+        await sendText(tenant, from, "Esa cita ya no está activa. Escribe *agendar* si quieres reservar una nueva.");
+        return;
+    }
+
+    await prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } });
+    await sendText(tenant, from, `Listo, cancelamos tu cita del ${bookingLabel(booking)}. Cuando quieras escribe *agendar* y con gusto te reservamos otra.`);
+    await notifyBookingCancelled(tenant.id, {
+        customerName: booking.customerName,
+        phone: from,
+        when: bookingLabel(booking),
+        serviceName: booking.service?.name ?? null,
+    });
+}
 
 const BTN_AGENDAR = "Agendar cita";
 const BTN_SERVICIOS = "Ver servicios";
@@ -586,6 +700,7 @@ export async function handleIncomingMessage({ tenant, from, body, pushName }) {
     }
 
     const state = await getStep(tenant.id, from);
+    if (state?.step === "confirm_cancel") return handleCancelConfirm(tenant, from, body, state.data);
     if (state?.step === "ask_service") return handleServiceCapture(tenant, from, body);
     if (state?.step === "ask_barber") return handleBarberCapture(tenant, from, body, state.data);
     if (state?.step === "ask_day") return handleDayCapture(tenant, from, body, state.data);
@@ -605,6 +720,10 @@ export async function handleIncomingMessage({ tenant, from, body, pushName }) {
     if (matchesAny(normalized, CONTACT_KEYWORDS)) {
         return sendText(tenant, from, await getFlowMessage(tenant.id, "CONTACT", "Contacta a administración."));
     }
+    // Cancelar va ANTES que agendar a propósito: el botón dice "Cancelar cita" y la palabra
+    // "cita" también dispara el flujo de agendar. Al revés, quien quiere cancelar acabaría
+    // reservando otra.
+    if (matchesAny(normalized, CANCEL_KEYWORDS)) return startCancelFlow(tenant, from);
     if (matchesAny(normalized, BOOKING_KEYWORDS)) return askServiceStep(tenant, from);
 
     // Nada coincidió: antes el bot se quedaba callado (un cliente real escribió algo que no

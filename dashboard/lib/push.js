@@ -57,6 +57,15 @@ export async function notifyHumanRequested(tenantId, { customerName, phone }) {
     });
 }
 
+// El horario queda libre en la agenda al instante, pero el barbero no está viendo la
+// pantalla: enterarse a tiempo es lo que le da chance de llenar ese espacio con otro cliente.
+export async function notifyBookingCancelled(tenantId, { customerName, phone, when, serviceName }) {
+    await sendPushToTenant(tenantId, {
+        title: "Se canceló una cita",
+        body: `${customerName || phone} canceló su cita del ${when}${serviceName ? ` (${serviceName})` : ""}. El horario ya quedó libre.`,
+    });
+}
+
 export async function notifyConnectionLost(tenantId) {
     await sendPushToTenant(tenantId, {
         title: "El bot se desconectó de WhatsApp",
