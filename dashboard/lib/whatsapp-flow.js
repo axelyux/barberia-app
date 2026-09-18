@@ -530,10 +530,12 @@ const BTN_SI_CANCELAR = "Sí, cancelar";
 const BTN_NO_CANCELAR = "No, mantenerla";
 const CANCEL_KEYWORDS = ["cancelar", "cancela", "cancelacion", "ya no puedo", "no voy a poder", "no podre ir", "no voy a ir"];
 
-// Citas futuras y todavía vigentes de ese teléfono.
+// Citas futuras y todavía vigentes de ese teléfono. El número se normaliza igual que al
+// guardar la cita (10 dígitos, sin lada de país): Meta manda "5218331234567" pero en la
+// base quedó como "8331234567", y sin normalizar aquí la búsqueda nunca encuentra nada.
 async function upcomingBookingsFor(tenantId, phone, timeZone) {
     return prisma.booking.findMany({
-        where: { tenantId, customerPhone: phone, status: "PENDING", scheduledAt: { gte: zonedNow(timeZone) } },
+        where: { tenantId, customerPhone: normalizePhone(phone), status: "PENDING", scheduledAt: { gte: zonedNow(timeZone) } },
         include: { service: true },
         orderBy: { scheduledAt: "asc" },
         take: 5,
@@ -603,7 +605,7 @@ async function handleCancelConfirm(tenant, from, body, data) {
     // se mandó el botón y se picó pudieron pasar días, y la barbería pudo cancelarla o
     // completarla desde el panel.
     const booking = await prisma.booking.findFirst({
-        where: { id: bookingId, tenantId: tenant.id, customerPhone: from, status: "PENDING" },
+        where: { id: bookingId, tenantId: tenant.id, customerPhone: normalizePhone(from), status: "PENDING" },
         include: { service: true },
     });
     await clearStep(tenant.id, from);
