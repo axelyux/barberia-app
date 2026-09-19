@@ -612,6 +612,11 @@ model Booking {
   amountPaidCents   Int            @default(0)
   reminderSentAt    DateTime?
   completedAt       DateTime?
+  // Cuándo se canceló y quién. Se distingue al cliente (canceló solo por WhatsApp) de la
+  // barbería (la canceló desde el panel): solo la del cliente le avisa al barbero, porque
+  // de la suya ya está enterado.
+  cancelledAt         DateTime?
+  cancelledByCustomer Boolean      @default(false)
   createdAt         DateTime       @default(now())
 
   @@index([tenantId, createdAt])

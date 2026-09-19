@@ -615,7 +615,10 @@ async function handleCancelConfirm(tenant, from, body, data) {
         return;
     }
 
-    await prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } });
+    await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "CANCELLED", cancelledAt: new Date(), cancelledByCustomer: true },
+    });
     await sendText(tenant, from, `Listo, cancelamos tu cita del ${bookingLabel(booking)}. Cuando quieras escribe *agendar* y con gusto te reservamos otra.`);
     await notifyBookingCancelled(tenant.id, {
         customerName: booking.customerName,

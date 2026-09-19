@@ -14,6 +14,7 @@ import PaymentMethodsEditor from "@/components/PaymentMethodsEditor";
 import FlowEditor from "@/components/FlowEditor";
 import FinancePanel from "@/components/FinancePanel";
 import ReportsPanel from "@/components/ReportsPanel";
+import CancellationAlert from "@/components/CancellationAlert";
 import UsersEditor from "@/components/UsersEditor";
 import BusinessHoursEditor from "@/components/BusinessHoursEditor";
 import LiveClock from "@/components/LiveClock";
@@ -161,6 +162,12 @@ export default function TenantBoard({
             ) : null}
 
             <div className="flex flex-col gap-4 px-4 pb-28 pt-2">
+                {/* Va fuera de cualquier pestaña: una cancelación hay que verla aunque el
+                    barbero esté en Caja cobrando, no solo si abre la Agenda. */}
+                {perms.CITAS.canView ? (
+                    <CancellationAlert slug={tenant.slug} brandColor={brandColor} onVerAgenda={() => setTab("hoy")} />
+                ) : null}
+
                 {allowedTabs.length === 0 ? (
                     <p className="rounded-md border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
                         Tu usuario no tiene ninguna vista habilitada. Pídele al administrador que te asigne permisos.

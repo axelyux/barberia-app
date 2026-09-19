@@ -62,6 +62,38 @@ export async function getBookingsForDate(slug, dateISO) {
     }));
 }
 
+// Citas que el CLIENTE canceló por WhatsApp desde cierto momento. Alimenta el contador
+// rojo de la pestaña Agenda: el barbero está cortando, no viendo la pantalla, y enterarse
+// a tiempo es lo que le da chance de meter a alguien más en ese hueco.
+//
+// Solo mira las últimas 24 h: una cancelación de hace tres días ya no es noticia, y así el
+// contador no se vuelve un número enorme que nadie limpia.
+export async function getRecentCancellations(slug, sinceISO) {
+    const { tenantId } = await requireTenantSession(slug, "CITAS", "view");
+    const unDiaAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const desde = sinceISO ? new Date(sinceISO) : unDiaAtras;
+
+    const bookings = await prisma.booking.findMany({
+        where: {
+            tenantId,
+            status: "CANCELLED",
+            cancelledByCustomer: true,
+            cancelledAt: { gte: desde > unDiaAtras ? desde : unDiaAtras },
+        },
+        include: { service: true },
+        orderBy: { cancelledAt: "desc" },
+        take: 20,
+    });
+
+    return bookings.map((b) => ({
+        id: b.id,
+        customerName: b.customerName,
+        serviceName: b.service?.name ?? null,
+        scheduledAt: b.scheduledAt?.toISOString() ?? null,
+        cancelledAt: b.cancelledAt?.toISOString() ?? null,
+    }));
+}
+
 export async function markBookingCompleted(bookingId, slug, { paymentMethod = "EFECTIVO", paymentStatus = "PAGADO", amountPaidCents } = {}) {
     const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
     const booking = await findOwnedOrThrow("booking", bookingId, tenantId, "Cita no encontrada");
@@ -81,7 +113,9 @@ export async function markBookingCompleted(bookingId, slug, { paymentMethod = "E
 
 export async function cancelBooking(bookingId, slug) {
     const { tenantId } = await requireTenantSession(slug, "CITAS", "edit");
-    await updateOwned("booking", bookingId, tenantId, { status: "CANCELLED" }, "Cita no encontrada");
+    // cancelledByCustomer se queda en false: la canceló la propia barbería desde el panel,
+    // así que no tiene caso avisarle de algo que acaba de hacer.
+    await updateOwned("booking", bookingId, tenantId, { status: "CANCELLED", cancelledAt: new Date() }, "Cita no encontrada");
     revalidatePath(`/t/${slug}`);
 }
 
