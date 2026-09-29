@@ -8,7 +8,11 @@ export { hashPassword, verifyPassword } from "@/lib/password";
 
 const COOKIE_NAME = "barber_session";
 const ADMIN_COOKIE_NAME = "barber_admin_session";
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+// 30 días: esto vive en la tablet del mostrador de una barbería, que se usa a diario. Con
+// 7 días el barbero tenía que volver a teclear sus datos cada semana sin ninguna razón.
+// Sigue habiendo cómo cortar el acceso al instante sin esperar a que venza: cambiar la
+// contraseña o desactivar al usuario sube su sessionVersion e invalida lo ya emitido.
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const b64url = (buf) => Buffer.from(buf).toString("base64url");
 

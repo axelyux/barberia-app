@@ -10,10 +10,34 @@ import { useGlobalPending } from "@/components/GlobalLoading";
 const initialState = { error: null };
 const DEFAULT_BRAND = "#D9A441";
 
+// La barbería que se usó por última vez EN ESTE APARATO. El barbero entra todos los días
+// desde la misma tablet del mostrador y estaba reescribiendo el nombre completo cada vez.
+// Va en el navegador, no en la sesión: no es un dato sensible (el nombre se ve en los
+// mensajes del bot) y debe sobrevivir al cierre de sesión, que es justo cuando más estorba
+// volver a teclearlo.
+const RECORDADA_KEY = "mibarber:ultima-barberia";
+
+const leerRecordada = () => {
+    try {
+        return localStorage.getItem(RECORDADA_KEY) ?? "";
+    } catch {
+        return "";
+    }
+};
+
+const guardarRecordada = (valor) => {
+    try {
+        localStorage.setItem(RECORDADA_KEY, valor);
+    } catch {
+        // Modo privado o almacenamiento bloqueado: se sigue pudiendo escribir a mano.
+    }
+};
+
 export default function LoginForm({ action = login, showTenantField = true }) {
     const [state, formAction, isPending] = useActionState(action, initialState);
     useGlobalPending(isPending);
     const [tenantPreview, setTenantPreview] = useState(null);
+    const [tenantValue, setTenantValue] = useState("");
     const debounceRef = useRef(null);
 
     // Mientras el usuario escribe la barbería, buscamos su color de marca ya configurado
@@ -21,9 +45,7 @@ export default function LoginForm({ action = login, showTenantField = true }) {
     // mismo aviso de vencimiento que vería ya adentro del panel — así el dueño lo nota
     // desde el login, no hasta después de entrar. Solo aplica al login de barberías, el
     // de super-admin no tiene tenant.
-    const onTenantSlugChange = (e) => {
-        if (!showTenantField) return;
-        const value = e.target.value.trim();
+    const buscarMarca = (value) => {
         clearTimeout(debounceRef.current);
         if (!value) {
             setTenantPreview(null);
@@ -32,8 +54,29 @@ export default function LoginForm({ action = login, showTenantField = true }) {
         debounceRef.current = setTimeout(async () => {
             const tenant = await getTenantBrand(value);
             setTenantPreview(tenant ?? null);
+            // Solo se recuerda lo que de verdad existe: así un typeo a medias no queda
+            // guardado para la próxima vez.
+            if (tenant) guardarRecordada(value);
         }, 350);
     };
+
+    const onTenantSlugChange = (e) => {
+        if (!showTenantField) return;
+        const value = e.target.value;
+        setTenantValue(value);
+        buscarMarca(value.trim());
+    };
+
+    // Se rellena después de montar, no durante el render: localStorage no existe en el
+    // servidor y leerlo ahí rompería la hidratación.
+    useEffect(() => {
+        if (!showTenantField) return;
+        const recordada = leerRecordada();
+        if (!recordada) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- rellenado inicial desde el almacenamiento del navegador
+        setTenantValue(recordada);
+        buscarMarca(recordada);
+    }, [showTenantField]);
 
     useEffect(() => () => clearTimeout(debounceRef.current), []);
 
@@ -58,7 +101,14 @@ export default function LoginForm({ action = login, showTenantField = true }) {
             >
                 {showTenantField ? (
                     <Field label="Barbería">
-                        <TextInput name="tenantSlug" type="text" required autoComplete="off" onChange={onTenantSlugChange} />
+                        <TextInput
+                            name="tenantSlug"
+                            type="text"
+                            required
+                            autoComplete="organization"
+                            value={tenantValue}
+                            onChange={onTenantSlugChange}
+                        />
                     </Field>
                 ) : null}
                 <Field label="Usuario">
